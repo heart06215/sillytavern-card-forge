@@ -1,0 +1,22 @@
+# 测试产物（由 node test_card.js 生成，可随时重新生成）
+test_card_output.png
+
+# 未被引用的测试用图（如不需要可删除）
+test_avatar.png
+
+# 本地工具 / 代理目录
+.agents/
+.opencode/
+.vscode/
+.idea/
+
+# 操作系统垃圾文件
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# 临时文件
+*.tmp
+*.log
+~$*

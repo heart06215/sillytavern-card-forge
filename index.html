@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>世界观卡工坊 · 酒馆世界卡生成器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">🌍</span>
+      <div>
+        <div class="title">世界观卡工坊</div>
+        <div class="subtitle">酒馆（SillyTavern）世界卡 · 内嵌世界书 · 纯本地，数据不出本机</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button id="btnCoverTop" class="cover-btn" title="设置世界卡封面">
+        <img id="coverThumb" alt="" hidden>
+        <span id="coverThumbPh">🖼 封面</span>
+      </button>
+      <button id="btnImport" class="btn" title="导入世界卡 PNG / JSON、世界书、MD 存档、图片封面">📂 导入</button>
+      <button id="btnExportJson" class="btn">⬇ 导出 JSON</button>
+      <button id="btnGenPng" class="btn primary" title="生成 PNG 世界卡（Ctrl+Enter）">🎴 生成 PNG 世界卡</button>
+      <input type="file" id="importFile" accept=".png,.json,.md,.markdown,.txt,application/json,image/png,text/markdown" hidden>
+    </div>
+  </header>
+
+  <div id="healthBar" class="health-bar" aria-label="卡片体检"></div>
+
+  <main class="layout">
+    <!-- ============ 左侧：作品与内容编辑 ============ -->
+    <section class="form-col">
+      <nav class="tabs" data-tabs="form" role="tablist">
+        <button class="tab" data-tab="tab-overview">🧭 作品</button>
+        <button class="tab" data-tab="tab-world">🌍 世界观</button>
+        <button class="tab" data-tab="tab-rules">📜 条例与文风</button>
+        <button class="tab" data-tab="tab-open">🎬 开局</button>
+        <button class="tab" data-tab="tab-book">📚 卡内世界书<span class="badge" id="badge-book">0</span></button>
+        <button class="tab" data-tab="tab-lib">📕 世界书库</button>
+        <button class="tab" data-tab="tab-ui">🖥 界面与扩展</button>
+      </nav>
+
+      <div class="tab-panels" data-panels="form">
+
+        <!-- ---------- 作品 ---------- -->
+        <section class="tab-panel" id="tab-overview">
+          <div class="panel">
+            <div class="panel-title">📁 作品列表<span class="hint" id="worksHint"></span></div>
+            <div id="worksList" class="works-list"></div>
+            <div class="row">
+              <button id="btnNewWork" class="btn small primary">＋ 新建作品</button>
+              <button id="btnDupWork" class="btn small" title="复制当前作品，用于做一个变体">⎘ 复制当前作品</button>
+              <button id="btnDelWork" class="btn small danger" title="删除当前作品">✕ 删除当前作品</button>
+            </div>
+            <p class="tip">作品保存在本机浏览器（IndexedDB），可随时切换、复制、删除；生成 PNG 时会把当前作品写入图片。</p>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🖼 封面图片</div>
+            <div class="cover-row">
+              <div id="coverBox" class="cover-box">尚未选择</div>
+              <div class="cover-ops">
+                <button id="btnPickCover" class="btn small primary">选择封面图片</button>
+                <button id="btnClearCover" class="btn small ghost" title="移除当前封面">移除封面</button>
+                <span id="coverInfo" class="hint"></span>
+                <p class="tip" style="margin:6px 0 0;">封面就是酒馆里显示的角色头像 / 世界卡立绘。PNG 会原样嵌入；JPG / WebP 会自动转成 PNG。也可以直接把图片拖进页面。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🧾 作品信息</div>
+            <div class="grid2">
+              <label class="field">
+                <span class="label">作品 / 世界名 name <span class="req-badge">必填</span></span>
+                <input type="text" data-field="name" placeholder="例如：被遗忘的极北之城">
+              </label>
+              <label class="field">
+                <span class="label">作者 creator</span>
+                <input type="text" data-field="creator" placeholder="你的名字">
+              </label>
+              <label class="field">
+                <span class="label">版本 character_version</span>
+                <input type="text" data-field="character_version" placeholder="1.0">
+              </label>
+              <label class="field">
+                <span class="label">标签 tags（逗号分隔）</span>
+                <input id="f-tags" type="text" placeholder="奇幻, 悬疑, 群像">
+              </label>
+              <label class="field">
+                <span class="label">导出规范</span>
+                <select id="f-spec">
+                  <option value="chara_card_v3">V3（含群聊开局）</option>
+                  <option value="chara_card_v2">V2（兼容旧酒馆）</option>
+                </select>
+              </label>
+            </div>
+            <label class="field">
+              <span class="label">作者备注 creator_notes（给导入者看，不进入提示词）</span>
+              <textarea data-field="creator_notes" data-count rows="3" placeholder="推荐模型、开局如何选择、状态栏说明、版本记录……"></textarea>
+            </label>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🗺 这张卡由六层组成</div>
+            <div class="layer-grid">
+              <div class="layer"><b>① 世界观</b><span>世界总纲与当前处境：这个世界是什么</span></div>
+              <div class="layer"><b>② 叙事</b><span>文风基调与示例：世界怎样被讲述</span></div>
+              <div class="layer"><b>③ 条例</b><span>行为规则：什么能写、什么不能写</span></div>
+              <div class="layer"><b>④ 开局</b><span>多个故事入口，酒馆里可切换</span></div>
+              <div class="layer"><b>⑤ 世界书</b><span>碎片设定，按关键词或常驻注入</span></div>
+              <div class="layer"><b>⑥ 界面</b><span>状态栏等显示层正则、原生扩展</span></div>
+            </div>
+            <p class="tip">💡 世界卡的核心是「世界」：总纲说明世界与讲述者，细节放世界书，开局提供入口，条例约束输出，正则负责界面。世界书名会自动同步到 <code>extensions.world</code>，导入酒馆时可关联内嵌世界书。</p>
+          </div>
+        </section>
+
+        <!-- ---------- 世界观 ---------- -->
+        <section class="tab-panel" id="tab-world">
+          <div class="panel">
+            <div class="panel-title">🌍 世界总纲 description</div>
+            <div class="field">
+              <span class="label">世界是什么、核心法则、主要势力与不可违背之处。用 <code>{{char}}</code> 指讲述者、<code>{{user}}</code> 指玩家。</span>
+              <div class="inline-tools">
+                <button class="btn small" data-tpl="world-frame" data-target="description">🧱 世界总纲框架</button>
+                <button class="btn small" data-tpl="narrator-frame" data-target="description">🎙 讲述者设定</button>
+                <button class="btn small ghost" data-clear="description" title="清空世界总纲">🧹 清除</button>
+              </div>
+              <textarea data-field="description" data-count rows="14" placeholder="# 世界总纲&#10;&#10;## 基本定位&#10;- 这是一个（类型）世界，时代为（时间）。&#10;&#10;## 世界法则&#10;1. （核心规则）&#10;&#10;## 地理与局势&#10;- （主要区域与当前局势）"></textarea>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">🌐 世界当前情况 scenario</div>
+            <label class="field">
+              <span class="label">故事发生的时间、地点与当下局势（背景注入，较短即可）</span>
+              <textarea data-field="scenario" data-count rows="4" placeholder="极北之城，永夜将至的第七日；城墙外的雾一夜之间退了三里。"></textarea>
+            </label>
+          </div>
+          <p class="tip">💡 细节（地点、势力、人物、物品、规则）建议放进「世界书」，只在关键词命中时注入，比全部写进总纲更省 token。</p>
+        </section>
+
+        <!-- ---------- 条例与文风 ---------- -->
+        <section class="tab-panel" id="tab-rules">
+          <div class="panel">
+            <div class="panel-title">🎙 文风基调 tone</div>
+            <p class="tip">选择基调与叙述方式，会生成一段说明写入 <code>personality</code> 字段。可多选基调。</p>
+            <div id="tonePresets" class="tone-presets"></div>
+            <div class="grid2">
+              <label class="field"><span class="label">叙述视角</span><select id="tone-person"></select></label>
+              <label class="field"><span class="label">时态</span><select id="tone-tense"></select></label>
+              <label class="field"><span class="label">篇幅</span><select id="tone-length"></select></label>
+              <label class="field"><span class="label">对白占比</span><select id="tone-dialogue"></select></label>
+              <label class="field"><span class="label">节奏</span><select id="tone-pace"></select></label>
+              <label class="field">
+                <span class="label">补充要求（可选）</span>
+                <input id="tone-custom" type="text" placeholder="例：少用感叹号，多用短句">
+              </label>
+            </div>
+            <div class="row">
+              <button id="btnToneApply" class="btn small primary">生成到下方</button>
+              <span class="hint" id="tonePreviewHint"></span>
+            </div>
+            <div class="field" style="margin-top:6px;">
+              <span class="label">叙事基调 personality（上面的选择会生成到这里，之后可继续手改）</span>
+              <textarea data-field="personality" data-count rows="5" placeholder="例：冷峻克制的叙事，偏重感官细节，不做道德评判。"></textarea>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">📜 条例 rules<span class="badge" id="badge-rules">0</span></div>
+            <p class="tip">条例是约束模型输出的规则，会追加到对应字段末尾。可停用、删除、自己新建。</p>
+            <div id="rulesList"></div>
+            <div class="row">
+              <button id="btnAddRule" class="btn small primary">＋ 新建条例</button>
+              <button id="btnRuleLib" class="btn small" title="从内置条例库中添加">📖 从条例库添加</button>
+            </div>
+            <div id="ruleLib" class="rule-lib" hidden></div>
+            <div id="ruleEditor" class="rule-editor" hidden>
+              <div class="grid2">
+                <label class="field"><span class="label">条例标题</span><input id="rule-title" type="text" placeholder="例：禁止替玩家发言"></label>
+                <label class="field"><span class="label">写入字段</span><select id="rule-target"></select></label>
+              </div>
+              <label class="field"><span class="label">条例内容</span><textarea id="rule-body" rows="4" placeholder="用清晰、可执行的语言写一条规则。"></textarea></label>
+              <div class="row">
+                <button id="rule-save" class="btn small primary">保存条例</button>
+                <button id="rule-cancel" class="btn small">取消</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">⚖️ 输出与深度提示</div>
+            <div class="grid2">
+              <label class="field">
+                <span class="label">历史后指令 post_history_instructions（权重最高，<code>{{original}}</code> 代表用户原设置）</span>
+                <textarea data-field="post_history_instructions" data-count rows="5" placeholder="条例会追加到这里；也可以直接写内容。"></textarea>
+              </label>
+              <div class="field">
+                <span class="label">深度提示 depth_prompt（在对话指定深度注入）</span>
+                <textarea id="dp-prompt" rows="3" placeholder="留空则忽略。例：每次只推进一小段，结尾留出玩家的选择。"></textarea>
+                <div class="grid2" style="margin-top:8px;">
+                  <label class="field"><span class="label">注入深度</span><input id="dp-depth" type="number" min="0" value="4"></label>
+                  <label class="field"><span class="label">注入身份</span><select id="dp-role"><option value="system">system</option><option value="user">user</option><option value="assistant">assistant</option></select></label>
+                </div>
+              </div>
+            </div>
+            <label class="field">
+              <span class="label">卡内系统提示 system_prompt（留空沿用酒馆全局设置）</span>
+              <textarea data-field="system_prompt" data-count rows="3" placeholder="一般留空。"></textarea>
+            </label>
+            <div class="field">
+              <span class="label">叙事示例 mes_example（每组以 <code>&lt;START&gt;</code> 开头，<code>{{user}}:</code> / <code>{{char}}:</code> 交替）</span>
+              <div class="inline-tools">
+                <button class="btn small" data-tpl="mes-example" data-target="mes_example">💬 插入示例框架</button>
+                <button class="btn small ghost" data-clear="mes_example" title="清空叙事示例">🧹 清除</button>
+              </div>
+              <textarea data-field="mes_example" data-count rows="6" placeholder="&lt;START&gt;&#10;{{user}}: 我想进入那座钟楼。&#10;{{char}}: 钟楼的门虚掩着，门缝里渗出潮湿的冷风……"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- ---------- 开局 ---------- -->
+        <section class="tab-panel" id="tab-open">
+          <div class="panel">
+            <div class="panel-title">🎬 主开局 first_mes <span class="req-badge">必填</span></div>
+            <div class="field">
+              <span class="label">玩家进入世界的第一幕：用「你」或 <code>{{user}}</code> 带入场景，结尾留出行动空间。</span>
+              <div class="inline-tools">
+                <button class="btn small" data-tpl="status-html" data-target="first_mes">✨ HTML 状态栏</button>
+                <button class="btn small" data-tpl="status-lite" data-target="first_mes">🧾 文字状态栏</button>
+                <button class="btn small" data-tpl="opening-menu" data-target="first_mes">🧭 开局选项菜单</button>
+                <button class="btn small ghost" data-clear="first_mes" title="清空主开局">🧹 清除</button>
+              </div>
+              <textarea data-field="first_mes" data-count rows="10" placeholder="你推开城门时，雪正下着。城里的钟停在十一点，钟楼亮着一盏不该亮着的灯。"></textarea>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🔀 备用开局 alternate_greetings <span class="badge" id="badge-greet">0</span></div>
+            <p class="tip">每个备用开局是一个独立的故事入口（不同时间点、身份或阵营）。<b>导入酒馆后，玩家在对话里用开场白的左右箭头（或键盘 ← →）即可切换。</b></p>
+            <div id="greetingsList"></div>
+            <button id="btnAddGreeting" class="btn small">＋ 添加备用开局</button>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">👥 群聊开局 group_only_greetings（V3）</div>
+            <div id="groupGreetingsList"></div>
+            <button id="btnAddGroupGreeting" class="btn small">＋ 添加群聊开局</button>
+          </div>
+        </section>
+
+        <!-- ---------- 世界书 ---------- -->
+        <section class="tab-panel" id="tab-book">
+          <div class="panel">
+            <div class="panel-title">📚 世界书设置 character_book</div>
+            <div class="grid4 book-meta">
+              <label class="field">
+                <span class="label">世界书名称（同步到 extensions.world）</span>
+                <input id="f-book-name" type="text" placeholder="例：极北之城设定集">
+              </label>
+              <label class="field"><span class="label">扫描深度 scan_depth</span><input id="f-book-scan" type="number" min="0" max="100" value="2"></label>
+              <label class="field"><span class="label">Token 预算 token_budget</span><input id="f-book-budget" type="number" min="0" value="500"></label>
+              <label class="field checkline"><span class="checkbox-field"><input id="f-book-recursive" type="checkbox"><span>递归扫描</span></span></label>
+            </div>
+            <div id="bookStats" class="book-stats"></div>
+          </div>
+
+          <div class="panel">
+            <div class="book-toolbar">
+              <select id="newEntryCat" class="cat-select" title="新条目分类"></select>
+              <button id="btnAddEntry" class="btn small primary">＋ 新建条目</button>
+              <button id="btnAddFromTpl" class="btn small" title="按骨架新建条目">🧱 模板新建</button>
+              <button id="btnImportBook" class="btn small">⬆ 导入世界书</button>
+              <button id="btnExportBook" class="btn small">⬇ 导出世界书</button>
+              <input id="bookSearch" class="book-search" type="text" placeholder="🔍 搜索（标题 / 关键词 / 内容）">
+              <label class="checkbox-field"><input id="bookCollapseAll" type="checkbox" checked><span>折叠高级</span></label>
+              <input type="file" id="bookFile" accept=".json,application/json" hidden>
+            </div>
+            <div id="catFilter" class="cat-filter"></div>
+            <div id="bookEntries"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🔎 关键词触发测试</div>
+            <p class="tip">粘贴一段玩家的话或剧情，立即看到哪些条目会被注入（按关键词、次级关键词与常驻规则模拟）。</p>
+            <textarea id="tester-text" rows="3" placeholder="例：我走进钟楼，想找那份被藏起来的记录。"></textarea>
+            <div id="tester-result" class="tester-result"></div>
+          </div>
+        </section>
+
+        <!-- ---------- 世界书库（非内嵌世界书） ---------- -->
+        <section class="tab-panel" id="tab-lib">
+          <div class="panel">
+            <div class="panel-title">📕 世界书库（非内嵌世界书）<span class="hint" id="libHint"></span></div>
+            <p class="tip">这里的每一本都是一个<b>独立世界书</b>：导出为 <code>.json</code> 后，可在酒馆「世界书」面板直接导入，挂到任意角色卡上；也可以<b>设为当前作品的卡内世界书</b>。字段与酒馆原生世界书完全一致（41 个字段，含 uid、characterFilter、triggers 等）。</p>
+            <div id="libList" class="works-list"></div>
+            <div class="row">
+              <button id="btnNewLib" class="btn small primary">＋ 新建世界书</button>
+              <button id="btnDupLib" class="btn small" title="复制当前世界书">⎘ 复制</button>
+              <button id="btnDelLib" class="btn small danger">✕ 删除</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">⚙️ 世界书设置</div>
+            <div class="grid4 book-meta">
+              <label class="field">
+                <span class="label">世界书名 name</span>
+                <input id="lib-name" type="text" placeholder="例：极北之城设定集">
+              </label>
+              <label class="field"><span class="label">扫描深度 scan_depth</span><input id="lib-scan" type="number" min="0" max="100" value="2"></label>
+              <label class="field"><span class="label">Token 预算 token_budget</span><input id="lib-budget" type="number" min="0" value="500"></label>
+              <label class="field checkline"><span class="checkbox-field"><input id="lib-recursive" type="checkbox"><span>递归扫描</span></span></label>
+            </div>
+            <div id="libStats" class="book-stats"></div>
+            <div class="row">
+              <button id="btnLibImport" class="btn small">⬆ 导入世界书 .json</button>
+              <button id="btnLibExport" class="btn small primary">⬇ 导出世界书 .json</button>
+              <button id="btnLibToCard" class="btn small" title="把当前世界书设为当前作品的卡内世界书">📥 设为卡内世界书</button>
+              <button id="btnCardToLib" class="btn small" title="把当前作品的卡内世界书存入世界书库">📤 从卡内世界书存入</button>
+              <input type="file" id="libFile" accept=".json,application/json" hidden>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="book-toolbar">
+              <select id="libNewCat" class="cat-select" title="新条目分类"></select>
+              <button id="btnLibAddEntry" class="btn small primary">＋ 新建条目</button>
+              <button id="btnLibAddFromTpl" class="btn small" title="按骨架新建条目">🧱 模板新建</button>
+              <input id="libSearch" class="book-search" type="text" placeholder="🔍 搜索（标题 / 关键词 / 内容）">
+              <label class="checkbox-field"><input id="libCollapseAll" type="checkbox" checked><span>折叠高级</span></label>
+            </div>
+            <div id="libCatFilter" class="cat-filter"></div>
+            <div id="libEntries"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🔎 关键词触发测试</div>
+            <textarea id="libTesterText" rows="3" placeholder="粘贴一段剧情，看这本世界书会注入哪些条目。"></textarea>
+            <div id="libTesterResult" class="tester-result"></div>
+          </div>
+        </section>
+
+        <!-- ---------- 界面与扩展 ---------- -->
+        <section class="tab-panel" id="tab-ui">
+          <div class="panel">
+            <div class="panel-title">🎨 统一前端（世界面板）</div>
+            <p class="tip">用本项目做出的每张卡都带同一个前端：选一个内置模板 → 简单改内容 → 自动完成两件事——把占位符 <code id="uiPhText">&lt;WorldPanel/&gt;</code> 插入开局，并生成一条把占位符渲染成 HTML 面板的正则脚本。玩家在酒馆里看到的就是这个面板。</p>
+            <div id="uiEmpty" class="empty-state">
+              <div class="es-icon">🎨</div>
+              <div class="es-title">还没有前端</div>
+              <div class="es-text">选一个模板即可开始，之后可随时改内容、换主题。</div>
+              <div class="row" style="justify-content:center;margin-top:10px;">
+                <select id="uiStartTpl" class="cat-select" style="width:auto;"></select>
+                <button id="btnUiStart" class="btn small primary">🎨 创建前端</button>
+              </div>
+            </div>
+            <div id="uiEditor" hidden>
+              <div class="grid2">
+                <label class="field"><span class="label">模板</span><select id="ui-template"></select></label>
+                <label class="field"><span class="label">主题配色</span><select id="ui-theme"></select></label>
+              </div>
+              <div class="grid2">
+                <label class="field"><span class="label">面板标题</span><input id="ui-title" type="text"></label>
+                <label class="field" id="ui-subtitle-wrap"><span class="label">副标题（仅开局面板）</span><input id="ui-subtitle" type="text"></label>
+              </div>
+              <div class="grid2" id="ui-layout-wrap">
+                <label class="field"><span class="label">排列方式（状态栏）</span>
+                  <select id="ui-layout">
+                    <option value="row">一行横排</option>
+                    <option value="grid">两列网格</option>
+                    <option value="list">每行一条</option>
+                  </select>
+                </label>
+                <label class="field"><span class="label">自定义颜色（留空则用主题色）</span>
+                  <div class="color-row">
+                    <input id="ui-c-from" type="color" title="背景起">
+                    <input id="ui-c-to" type="color" title="背景止">
+                    <input id="ui-c-border" type="color" title="边框">
+                    <input id="ui-c-text" type="color" title="文字">
+                    <input id="ui-c-accent" type="color" title="强调">
+                  </div>
+                </label>
+              </div>
+
+              <div class="field" id="ui-fields-wrap">
+                <span class="label">信息字段（图标 / 标签 / 内容，支持 <code>{{time}}</code> <code>{{date}}</code> <code>{{char}}</code> <code>{{user}}</code> 宏）</span>
+                <div id="uiFields" class="ui-rows"></div>
+                <button id="uiAddField" class="btn small">＋ 添加字段</button>
+              </div>
+
+              <div class="field" id="ui-options-wrap">
+                <span class="label">开局选项（每行一条）</span>
+                <textarea id="ui-options" rows="4"></textarea>
+              </div>
+
+              <div class="field" id="ui-sections-wrap">
+                <span class="label">信息区块</span>
+                <div id="uiSections" class="ui-rows"></div>
+                <button id="uiAddSection" class="btn small">＋ 添加区块</button>
+              </div>
+
+              <div class="row">
+                <label class="checkbox-field"><input id="ui-displayOnly" type="checkbox" checked><span>仅影响显示（不把面板内容发给模型；开局面板建议关闭）</span></label>
+              </div>
+              <div class="row">
+                <label class="checkbox-field"><input id="ui-inGreetings" type="checkbox"><span>同时插入到每条备用开局</span></label>
+              </div>
+              <div class="row">
+                <button id="uiApply" class="btn small primary">💾 应用并更新到卡片</button>
+                <button id="uiPreview" class="btn small">👀 在前端预览中查看</button>
+                <button id="uiRemove" class="btn small danger" title="移除前端（同时删除对应正则与占位符）">🗑 移除前端</button>
+                <span class="hint" id="uiHint"></span>
+              </div>
+              <details class="entry-adv">
+                <summary>查看生成的 HTML 与正则（高级）</summary>
+                <pre id="uiHtmlOut" class="json-preview"></pre>
+              </details>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🧷 正则脚本 regex_scripts<span class="badge" id="badge-regex">0</span></div>
+            <div id="regexScripts"></div>
+            <div class="row">
+              <button id="btnAddRegex" class="btn small">＋ 添加正则脚本</button>
+              <button id="btnAddRegexHide" class="btn small" title="隐藏思维链与内部标签（仅显示，不改变发给模型的内容）">🧹 隐藏标签</button>
+              <button id="btnAddRegexStatus" class="btn small" title="把状态栏标签渲染成代码块样式">🖼 状态栏标签</button>
+            </div>
+            <p class="tip">💡 <b>placement</b>：1 = 用户输入，2 = AI 输出。<b>仅显示 markdownOnly</b> 只改显示；<b>仅提示词 promptOnly</b> 只改发给模型的内容。查找支持 <code>/正则/flags</code>，替换可用 <code>$1</code>。</p>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🧩 原生扩展 extensions</div>
+            <p class="tip">这里显示 <code>extensions</code> 里其他键（如 QuickReply 配置等）。可整体编辑后保存，导入的键会原样写回。</p>
+            <textarea id="rawExtras" class="mono" rows="10" spellcheck="false"></textarea>
+            <div class="row">
+              <button id="btnSaveExtras" class="btn small primary">保存扩展</button>
+              <span class="hint" id="extrasHint"></span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🧪 酒馆助手脚本 tavern_helper<span class="badge" id="badge-helper">0</span></div>
+            <p class="tip">助手脚本是参考卡的核心机制：用来挂载变量表（MVU / Zod）、渲染开局面板、注入 EJS 等。脚本内容为 JavaScript，运行在酒馆助手环境里。<b>导入的脚本与其中的 <code>variables</code> 等键会原样保留</b>，导出的形态（对象或数组）也与导入时一致。</p>
+            <div id="helperList"></div>
+            <div class="row">
+              <button id="btnAddHelper" class="btn small primary">＋ 新建脚本</button>
+              <button id="btnHelperTpl" class="btn small" title="插入常用脚本骨架">📄 脚本模板</button>
+            </div>
+            <div id="helperTplBox" class="rule-lib" hidden></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🗂 自定义片段</div>
+            <p class="tip">把常用段落存成片段，按钮会出现在对应字段上方，一键插入。</p>
+            <div id="customTplEditor" hidden>
+              <div class="grid2">
+                <label class="field"><span class="label">片段名称</span><input id="ct-name" type="text" placeholder="例：势力分布"></label>
+                <label class="field"><span class="label">插入位置</span>
+                  <select id="ct-target">
+                    <option value="description">世界总纲</option>
+                    <option value="scenario">当前处境</option>
+                    <option value="first_mes">主开局</option>
+                    <option value="mes_example">叙事示例</option>
+                    <option value="post_history_instructions">历史后指令</option>
+                    <option value="creator_notes">作者备注</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field"><span class="label">片段内容</span><textarea id="ct-content" rows="6" placeholder="原样插入，支持 {{user}} / {{char}} 宏。"></textarea></label>
+              <div class="row">
+                <button id="ct-save" class="btn small primary">保存片段</button>
+                <button id="ct-cancel" class="btn small">取消</button>
+                <span id="ct-editing" class="hint"></span>
+              </div>
+            </div>
+            <button id="btnNewTpl" class="btn small">＋ 新建片段</button>
+            <div id="customTplList"></div>
+          </div>
+        </section>
+
+      </div>
+    </section>
+
+    <!-- ============ 右侧：预览与输出 ============ -->
+    <aside class="side-col">
+      <nav class="tabs side" data-tabs="side">
+        <button class="tab" data-tab="tab-preview">👀 预览</button>
+        <button class="tab" data-tab="tab-avatar">🖼 封面</button>
+        <button class="tab" data-tab="tab-save">💾 保存</button>
+        <button class="tab" data-tab="tab-ai">🤖 AI</button>
+        <button class="tab" data-tab="tab-json">{ } JSON</button>
+      </nav>
+
+      <div class="tab-panels" data-panels="side">
+        <section class="tab-panel" id="tab-preview">
+          <div class="panel">
+            <div class="panel-title">👀 开局预览（酒馆效果）</div>
+            <div id="chatPreview" class="chat-preview">
+              <div class="chat-msg">
+                <img class="chat-ava" alt="封面">
+                <div class="chat-bubble">
+                  <div class="chat-meta"><span class="chat-name">作品名</span><span class="chat-idx hint">主开局</span></div>
+                  <div class="chat-body"></div>
+                </div>
+              </div>
+            </div>
+            <div class="chat-nav">
+              <button id="btnPrevGreet" class="icon-btn" title="上一个开局">‹</button>
+              <button id="btnNextGreet" class="icon-btn" title="下一个开局">›</button>
+              <span class="hint" id="previewHint"></span>
+            </div>
+            <div class="row" style="margin-top:8px;">
+              <label class="checkbox-field"><input id="cbRenderHtml" type="checkbox" checked><span>渲染 HTML 与样式</span></label>
+              <label class="checkbox-field"><input id="cbRegexPreview" type="checkbox" checked><span>应用正则显示效果</span></label>
+            </div>
+            <p class="tip">消息在隔离 iframe 中渲染：卡内 <code>&lt;style&gt;</code> 与 HTML 状态栏照实显示；<code>{{char}}</code> / <code>{{user}}</code> 宏已替换。</p>
+            <p id="previewNote" class="tip warn" hidden></p>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-avatar">
+          <div class="panel">
+            <div class="panel-title">🖼 封面 / 头像</div>
+            <div id="avatarPreview" class="avatar-preview">尚未选择封面<br>点击下方按钮，或直接把图片拖进页面</div>
+            <div class="row">
+              <button id="btnPickAvatar" class="btn small">选择图片</button>
+              <span id="avatarInfo" class="hint"></span>
+            </div>
+            <input type="file" id="avatarFile" accept="image/*" hidden>
+            <p class="tip">PNG / JPG / WebP 均可（非 PNG 自动转码）。世界卡封面通常用场景图或地图；导入 PNG 卡时自动带入。作品页也有同样的封面设置入口。</p>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-save">
+          <div class="panel">
+            <div class="panel-title">💾 保存到指定目录</div>
+            <div class="row">
+              <button id="btnPickArchiveDir" class="btn small primary">📁 设置保存目录</button>
+              <span id="archiveDirInfo" class="hint"></span>
+            </div>
+            <p id="saveDirWarn" class="tip" hidden>⚠️ 当前浏览器不支持直接写入文件夹（需电脑版 Chrome / Edge），PNG / JSON 会退化为浏览器下载。</p>
+            <div class="field">
+              <label class="checkbox-field"><input id="save-png" type="checkbox" checked><span>生成 PNG 时保存到该目录</span></label>
+              <label class="checkbox-field"><input id="save-json" type="checkbox" checked><span>导出 JSON 时保存到该目录</span></label>
+              <label class="checkbox-field"><input id="also-download" type="checkbox"><span>同时再下载一份到浏览器下载文件夹</span></label>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">🗒 MD 存档（防丢失）</div>
+            <div class="row">
+              <button id="btnSaveArchive" class="btn small">💾 保存 MD 存档</button>
+              <button id="btnRestoreArchive" class="btn small">📥 从 MD 恢复</button>
+            </div>
+            <input type="file" id="archiveFile" accept=".md,.markdown,.txt,text/markdown" hidden>
+            <p class="tip">MD 存档含人可读的世界设定与机器可读数据块，可反向恢复全部内容。</p>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-ai">
+          <div class="panel">
+            <div class="panel-title">🤖 AI 扩写世界（可选）</div>
+            <label class="field"><span class="label">接口地址（OpenAI 兼容）</span><input id="ai-base" type="text" placeholder="https://api.openai.com/v1"></label>
+            <label class="field"><span class="label">API 密钥（只保存在本机浏览器）</span><input id="ai-key" type="password" placeholder="sk-..."></label>
+            <label class="field"><span class="label">模型</span><input id="ai-model" type="text" placeholder="gpt-4o-mini"></label>
+            <label class="field"><span class="label">世界构想（一两句灵感即可）</span><textarea id="ai-desc" rows="5" placeholder="例：一座永夜将至的极北之城，城墙外的雾一夜之间退了三里，钟楼里亮着一盏不该亮着的灯。"></textarea></label>
+            <button id="btnAiGen" class="btn primary full">🤖 AI 生成并填充世界</button>
+            <div id="aiStatus" class="hint"></div>
+            <p class="tip">生成会覆盖当前作品内容（有确认）。若跨域失败，请改用「启动角色卡工具-兼容模式.bat」。</p>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-json">
+          <div class="panel">
+            <div class="panel-title">{ } JSON 实时预览</div>
+            <pre id="jsonPreview" class="json-preview"></pre>
+            <button id="btnCopyJson" class="btn small">复制 JSON</button>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <div id="dropOverlay" class="drop-overlay" hidden><div class="drop-msg">松开以导入：世界卡 PNG / JSON / 世界书 / MD 存档 / 图片封面</div></div>
+
+  <script src="png-card.js"></script>
+  <script src="card-model.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
