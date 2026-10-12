@@ -16,6 +16,7 @@
       </div>
     </div>
     <div class="top-actions">
+      <button id="btnPasteParse" class="btn" title="粘贴文本，自动解析为角色卡 / 世界书">U0001F4CB 粘贴解析</button>
       <button id="btnCoverTop" class="cover-btn" title="设置世界卡封面">
         <img id="coverThumb" alt="" hidden>
         <span id="coverThumbPh">🖼 封面</span>
@@ -584,6 +585,40 @@
     </aside>
   </main>
 
+<div id="pasteModal" class="modal" hidden>
+  <div class="modal-mask" data-close="1"></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">U0001F4CB 粘贴文本智能解析</span>
+      <button class="icon-btn" data-close="1" title="关闭">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="paste-lead">
+        <div class="pl-title">粘贴你自己写的世界观</div>
+        <div class="pl-sub">写好的世界设定、地点、势力、任务……直接粘过来，工具会<b>智能分割</b>成你要的部分。</div>
+        <div class="pl-opts">
+          <span class="pl-opt">✅ <b>角色卡</b>：名字 / 设定 / 开局 等字段自动就位</span>
+          <span class="pl-opt">✅ <b>世界书</b>：地点 / 势力 / 任务 等分割为条目（可选）</span>
+        </div>
+        <div class="pl-note">支持的写法：<code>【标签】内容</code>、<code>标签：内容</code>、<code># 标题</code>、<code>&lt;tag&gt;</code>、空行分段；也可以直接粘 JSON。</div>
+      </div>
+      <textarea id="pasteText" rows="12" spellcheck="false" placeholder="示例：&#10;&#10;【角色名】艾莉娅&#10;【外貌】银白长发，琥璃色孔。&#10;【性格】温柔但嘴硬。&#10;【开场白】*她抱着一叠书转出来* 啊——对不起！&#10;&#10;【地点】北境要塞&#10;位置：王国最北端，墙外即是永夜。"></textarea>
+      <div class="row">
+        <label class="checkbox-field"><input id="pasteSplitLong" type="checkbox"><span>长内容自动拆分为多个条目</span></label>
+        <label class="checkbox-field"><input id="pasteToNew" type="checkbox" checked><span>写入新建作品（不覆盖当前）</span></label>
+        <button id="btnPasteRun" class="btn small primary">U0001F50D 解析</button>
+        <button id="btnPasteClear" class="btn small ghost">清空</button>
+      </div>
+      <div id="pasteResult" class="paste-result"></div>
+    </div>
+    <div class="modal-foot">
+      <span class="hint" id="pasteHint"></span>
+      <span style="flex:1"></span>
+      <button id="btnPasteApply" class="btn small primary" disabled>✔ 应用到作品</button>
+      <button class="btn small" data-close="1">取消</button>
+    </div>
+  </div>
+</div>
   <div id="toast" class="toast" hidden></div>
   <div id="dropOverlay" class="drop-overlay" hidden><div class="drop-msg">松开以导入：世界卡 PNG / JSON / 世界书 / MD 存档 / 图片封面</div></div>
 

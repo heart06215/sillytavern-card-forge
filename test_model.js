@@ -96,8 +96,9 @@ ok('正则未知字段 ephemerality 保留', rxOut.ephemerality === 'yes');
 
 // 6. 显示层正则与宏
 const shown = M.applyDisplayRegex('<think>内部</think>你好', [M.normalizeRegex({ findRegex: '/<think>[\\s\\S]*?<\\/think>/g', replaceString: '', placement: [2], markdownOnly: true })]);
-ok('显示层正则只替换 markdownOnly 脚本', shown === '你好');
-ok('提示词层正则（promptOnly）不作用于显示', M.applyDisplayRegex('x', [M.normalizeRegex({ findRegex: '/x/g', replaceString: 'y', placement: [2], markdownOnly: false })]) === 'x');
+ok('markdownOnly 脚本作用于显示', shown === '你好');
+ok('promptOnly 脚本不作用于显示', M.applyDisplayRegex('x', [M.normalizeRegex({ findRegex: '/x/g', replaceString: 'y', placement: [2], promptOnly: true })]) === 'x');
+ok('显示+提示词脚本也作用于显示', M.applyDisplayRegex('x', [M.normalizeRegex({ findRegex: '/x/g', replaceString: 'y', placement: [2], markdownOnly: false, promptOnly: false })]) === 'y');
 ok('宏 {{char}} {{user}} 替换', M.applyMacros('{{char}} 与 {{user}}', '讲述者', 'User') === '讲述者 与 User');
 
 // 7. V3 双块与 V2 导出
@@ -296,9 +297,10 @@ ok('isInternalCard 识别内部对象', M.isInternalCard(internal) === true);
 ok('isInternalCard 不把外部卡当内部对象', M.isInternalCard({ spec: 'chara_card_v3', data: { name: 'x' } }) === false);
 ok('fromInternalCard 对空对象给出默认条例', M.fromInternalCard({}).rules.length === M.defaultRules().length);
 // 内部 → 导出 → 导入 → 再导出（自旋，两条路径都要无损）
-const exp1 = M.toExportBundle(rt, { spec: 'chara_card_v3' }).primary;
+const spinNow = new Date('2026-01-01T00:00:00Z');
+const exp1 = M.toExportBundle(rt, { spec: 'chara_card_v3', now: spinNow }).primary;
 const reimported = M.fromCardObject(exp1);      // 重新导入（读 wc_source 还原）
-const exp2 = M.toExportBundle(reimported, { spec: 'chara_card_v3' }).primary;
+const exp2 = M.toExportBundle(reimported, { spec: 'chara_card_v3', now: spinNow }).primary;
 ok('内部卡经导出再导入后自旋一致', JSON.stringify(exp1) === JSON.stringify(exp2));
 ok('自旋后条例不叠加', exp2.data.description.indexOf('【不替玩家行动】') === exp2.data.description.lastIndexOf('【不替玩家行动】'));
 ok('自旋后自定义条例仍在', reimported.rules.some(r => r.title === '自定义' && r.target === 'system_prompt'));
@@ -407,3 +409,63 @@ function buildPng() {
     chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))
   ]));
 }
+
+// 18. 智能粘贴解析
+console.log('== 智能粘贴解析 ==');
+const t1 = ['【角色名】艾莉娅', '【外貌】银白长发编成侧辫，琥珀色瞳孔，左耳有一颗小痣。', '【性格】温柔但嘴硬，怕打雷，被夸奖会脸红。', '【场景】黄昏的海边小镇，你们合租在同一栋两层小屋里。', '【开场白】*她抱着一摞书从书架后转出来，差点撞到你* 啊——对不起！你是新来的冒险者吧？', '【作者备注】推荐长上下文模型。'].join(String.fromCharCode(10));
+const r1 = M.parsePastedText(t1);
+ok('识别为角色卡', r1.ok && r1.kind === 'card');
+ok('角色名解析正确', r1.fields.name === '艾莉娅');
+ok('外貌/性格/场景归位', r1.fields.description.indexOf('银白长发') !== -1 && r1.fields.personality.indexOf('嘴硬') !== -1 && r1.fields.scenario.indexOf('海边小镇') !== -1);
+ok('开场白归位', r1.fields.first_mes.indexOf('书架后') !== -1);
+ok('作者备注归位', r1.fields.creator_notes.indexOf('长上下文') !== -1);
+
+const t2 = ['【地点】北境要塞', '位置：王国最北端，墙外即是永夜。', '氛围：空气里有陈年灯油与雪混合的气味。', '', '【势力】守灯会', '立场：掌管钟楼与余烬分配，相信灯必须长亮。', '', '【人物】守灯人', '身份：守灯会成员，负责看守钟楼灯芯。', '', '【规则】光照即寿命', '黑暗中会逐渐失去记忆，须以余烬维持神志。'].join(String.fromCharCode(10));
+const r2 = M.parsePastedText(t2);
+ok('识别为世界书', r2.ok && (r2.kind === 'book' || r2.kind === 'mixed'));
+ok('生成 4 个条目', r2.entries.length === 4);
+ok('条目分类正确', r2.entries[0].comment.indexOf('地理') !== -1 && r2.entries[1].comment.indexOf('势力') !== -1 && r2.entries[2].comment.indexOf('人物') !== -1 && r2.entries[3].comment.indexOf('规则') !== -1);
+ok('条目标题提取', r2.entries[0].comment.indexOf('北境要塞') !== -1);
+ok('条目关键词自动取自标题', r2.entries[0].keys[0] === '北境要塞');
+ok('子标题保留在内容中', r2.entries[0].content.indexOf('位置：') !== -1 && r2.entries[0].content.indexOf('氛围：') !== -1);
+
+const t3 = ['# 永夜之城', '角色名：永夜将至的城', '核心设定：这是一个被永夜笼罩的世界，日光已有七年未曾升起。', '开场白：你推开门，雪正下着。', '', '【地点】钟楼', '钟楼顶端亮着一盏本不该亮着的灯。', '', '【势力】掘雾人', '冒险进入雾中寻找旧日遗物的组织。'].join(String.fromCharCode(10));
+const r3 = M.parsePastedText(t3);
+ok('识别为混合类型', r3.ok && r3.kind === 'mixed');
+ok('Markdown 标题作作品名', r3.fields.name === '永夜将至的城');
+ok('核心设定与开场白归位', r3.fields.description.indexOf('永夜') !== -1 && r3.fields.first_mes.indexOf('推开门') !== -1);
+ok('同时生成 2 个世界书条目', r3.entries.length === 2);
+
+const t4 = ['【开场白】你站在城门前。', '【备用开局】', '你在雾中走了三天，干粮已经耗尽。', '【开场白二】', '深夜，你被钟声惊醒。'].join(String.fromCharCode(10));
+const r4 = M.parsePastedText(t4);
+ok('主开局取第一个', r4.fields.first_mes.indexOf('城门前') !== -1);
+ok('备用开局识别 2 条', (r4.fields.__greetings || []).length === 2);
+ok('备用开局按文档顺序排列', r4.fields.__greetings[0].indexOf('雾中走了三天') !== -1 && r4.fields.__greetings[1].indexOf('钟声惊醒') !== -1);
+
+const t5 = ['【物品】余烬之灯', '关键词：余烬, 灯, 钟楼', '一盏不会熄灭的灯。'].join(String.fromCharCode(10));
+const r5 = M.parsePastedText(t5);
+ok('显式关键词优先', r5.entries[0].keys.join() === '余烬,灯,钟楼');
+
+const long = Array.from({ length: 8 }, (_, i) => '第' + (i + 1) + '段：' + '内容'.repeat(60)).join(String.fromCharCode(10) + String.fromCharCode(10));
+const r6 = M.parsePastedText('【规则】世界法则' + String.fromCharCode(10) + long, { splitLong: true });
+ok('长内容拆成多条', r6.entries.length > 1);
+const r6b = M.parsePastedText('【规则】世界法则' + String.fromCharCode(10) + long);
+ok('不拆分时为一条', r6b.entries.length === 1);
+
+const j1 = JSON.stringify({ spec: 'chara_card_v2', data: { name: 'JSON卡', description: 'd', first_mes: 'f' } });
+const r7 = M.parsePastedText(j1);
+ok('JSON 角色卡直接识别', r7.ok && r7.kind === 'json' && r7.card.data.name === 'JSON卡');
+const j2 = JSON.stringify({ entries: { '1': { uid: 1, key: ['a'], comment: 'c', content: 'x' } } });
+const r8 = M.parsePastedText(j2);
+ok('JSON 世界书直接识别', r8.ok && r8.kind === 'book' && r8.nativeBook.entries.length === 1);
+
+const r9 = M.parsePastedText('这是一段没有任何标签的长文本。'.repeat(30));
+ok('纯长文本落入世界总纲', r9.ok && r9.fields.description && r9.fields.description.length > 100);
+ok('空内容报错', M.parsePastedText('').ok === false);
+ok('纯空白报错', M.parsePastedText('   ' + String.fromCharCode(10) + '  ').ok === false);
+ok('极短无结构文本不崩溃', typeof M.parsePastedText('你好').ok === 'boolean');
+const blocks = M.splitBlocks('【A】1' + String.fromCharCode(10) + '内容' + String.fromCharCode(10) + '【B】2');
+ok('splitBlocks 切出 2 块', blocks.length === 2 && blocks[0].label === 'A' && blocks[1].label === 'B');
+ok('splitBlocks 保留内容', blocks[0].content === '1' + String.fromCharCode(10) + '内容');
+
+console.log(String.fromCharCode(10) + '全部通过：' + passed + ' 项断言 ✔');

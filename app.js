@@ -205,6 +205,7 @@
   }
 
   function afterWorkSwitch() {
+    invalidateHelper();
     previewIdx = 0;
     bookView = { query: '', cat: '', limit: BOOK_PAGE };
     $('#bookSearch').value = '';
@@ -215,6 +216,7 @@
   }
 
   function createWork(dup) {
+    invalidateHelper();
     var c = M.emptyCard();
     if (dup) {
       c = M.clone(card);
@@ -272,6 +274,41 @@
 
   /* ================= 表单绑定 ================= */
 
+  // 文本框自动增高：编辑现成卡时，长内容不会被压在几行高的小框里
+  function autoGrow(ta, max) {
+    if (!ta) return;
+    max = max || 600;
+    try {
+      // 记录初始高度作为下限：隐藏元素测不到 scrollHeight，避免被压成 0
+      if (ta.__minH == null) {
+        var r = ta.rows || 3;
+        ta.__minH = r * 22 + 18;
+      }
+      var prev = ta.style.height;
+      ta.style.height = "auto";
+      var h = ta.scrollHeight;
+      if (!h) h = ta.__minH;                 // 隐藏或空内容
+      h = Math.max(h, ta.__minH);
+      ta.style.height = Math.min(h, max) + "px";
+      ta.style.overflowY = h > max ? "auto" : "hidden";
+      if (prev === ta.style.height) ta.style.height = prev;
+    } catch (e) { /* ignore */ }
+  }
+  // 给文本框绑定自动增高
+  function bindAutoGrow(ta, max) {
+    if (!ta || ta.__autoGrow) return;
+    ta.__autoGrow = true;
+    ta.__autoGrowMax = max || 600;
+    ta.addEventListener("input", function () { autoGrow(ta, ta.__autoGrowMax); });
+    autoGrow(ta, ta.__autoGrowMax);
+  }
+  // 页签切换后重新计算（隐藏元素测不到 scrollHeight）
+  function refreshAutoGrow(sel) {
+    var list = document.querySelectorAll(sel + " textarea");
+    Array.prototype.forEach.call(list, function (ta) {
+      if (ta.__autoGrow) autoGrow(ta, ta.__autoGrowMax);
+    });
+  }
   function updateCount(el) {
     if (!el.hasAttribute('data-count')) return;
     var hint = el.nextElementSibling;
@@ -319,6 +356,7 @@
       var v = card[el.getAttribute('data-field')];
       el.value = v == null ? '' : v;
       updateCount(el);
+      if (el.tagName === 'TEXTAREA') bindAutoGrow(el, 600);
     });
     $('#f-tags').value = card.tags.join(', ');
     $('#f-spec').value = card.spec;
@@ -678,6 +716,7 @@
     var ta = document.createElement('textarea');
     ta.rows = 4;
     ta.value = entry.content;
+    bindAutoGrow(ta, 600);
     ta.addEventListener('input', function () { entry.content = this.value; bookChanged(); });
     content.appendChild(ta);
     box.appendChild(content);
@@ -879,6 +918,13 @@
   // 条目变化后的持久化与联动
   function bookChanged() {
     if (bkMode === 'card') {
+      // 有条目但世界书还没命名时，按作品名自动补一个（否则导入酒馆后关联不上）
+      var bk = card.character_book;
+      if (!bk.name.trim() && bk.entries.length && card.name.trim()) {
+        bk.name = card.name.trim() + ' 世界书';
+        var nm = $('#f-book-name');
+        if (nm) nm.value = bk.name;
+      }
       touch();
       renderBookStats();
     } else {
@@ -1002,6 +1048,8 @@
       var prev0 = bkMode;
       bkMode = 'lib';
       renderBookStats();
+      renderBookList();
+      renderCatFilter();
       bkMode = prev0;
       return;
     }
@@ -1012,6 +1060,8 @@
     var prev = bkMode;
     bkMode = 'lib';
     renderBookStats();
+    renderBookList();
+    renderCatFilter();
     bkMode = prev;
   }
 
@@ -1109,6 +1159,7 @@
         name: b.name, scan_depth: b.scan_depth, token_budget: b.token_budget,
         recursive_scanning: b.recursive_scanning, entries: b.entries.map(function (e) { return M.entryToCharBook(e); })
       });
+      bkMode = 'card';   // 必须切回卡内模式，否则渲染会写进世界书库容器
       syncFieldsToForm();
       renderBookList(); renderCatFilter();
       touch();
@@ -1126,9 +1177,14 @@
       };
       libBooks.items.push(item);
       libBooks.activeId = item.id;
+      bkMode = 'lib';
       saveLibBooks();
       renderLibList();
-      toast('已存入世界书库：' + item.name, 'ok', 4200);
+      syncLibToForm();
+      renderBookList();
+      renderCatFilter();
+      setFormTab('tab-lib');
+      toast('已存入世界书库：' + item.name + '（' + item.entries.length + ' 条）', 'ok', 4200);
     });
   }
 
@@ -1526,9 +1582,18 @@
   /* ================= 原生扩展 ================= */
 
   // 助手脚本（tavern_helper）：结构化编辑，保留原始形态与未知字段
+  // 助手脚本列表缓存：界面事件直接修改这些对象，
+  // 若每次保存都重新从 extensions 归一化，用户的编辑会被旧值覆盖
+  var helperCache = null;
+  function helperList() {
+    if (!helperCache) helperCache = M.helperScripts(card.extensions);
+    return helperCache;
+  }
+  function invalidateHelper() { helperCache = null; }
+
   function renderHelper() {
     var wrap = $('#helperList');
-    var list = M.helperScripts(card.extensions);
+    var list = helperList();
     var badge = document.getElementById('badge-helper');
     if (badge) { badge.textContent = list.length; badge.setAttribute('data-zero', list.length ? '0' : '1'); }
     wrap.innerHTML = '';
@@ -1572,14 +1637,14 @@
       head.appendChild(iconBtn('⎘', '复制', function () {
         var copy = M.normalizeHelperScript(Object.assign({}, M.clone(s)));
         copy.id = 'hs' + Date.now().toString(36);
-        var l = M.helperScripts(card.extensions);
+        var l = helperList();
         l.splice(i + 1, 0, copy);
         commitHelper(l);
         toast('已复制脚本', 'ok');
       }));
       head.appendChild(iconBtn('✕', '删除', function () {
         if (!confirm('删除脚本「' + (s.name || '未命名') + '」？')) return;
-        var l = M.helperScripts(card.extensions);
+        var l = helperList();
         l.splice(i, 1);
         commitHelper(l);
       }, 'danger'));
@@ -1593,6 +1658,7 @@
       ta.className = 'mono';
       ta.spellcheck = false;
       ta.value = s.content;
+      bindAutoGrow(ta, 420);
       ta.addEventListener('input', function () { s.content = this.value; saveHelper(); });
       body.appendChild(ta);
       box.appendChild(body);
@@ -1610,7 +1676,7 @@
 
   // 防抖保存（仅更新 DOM 统计，不整页重绘，避免打断输入）
   var saveHelper = debounce(function () {
-    var list = M.helperScripts(card.extensions);
+    var list = helperList();
     M.setHelperScripts(card.extensions, list);
     var badge = document.getElementById('badge-helper');
     if (badge) { badge.textContent = list.length; badge.setAttribute('data-zero', list.length ? '0' : '1'); }
@@ -1618,6 +1684,7 @@
   }, 400);
 
   function commitHelper(list) {
+    helperCache = list;
     M.setHelperScripts(card.extensions, list);
     renderHelper();
     touch();
@@ -1738,6 +1805,7 @@
       ta.rows = 4;
       ta.placeholder = placeholder + ' ' + (i + 1);
       ta.value = g;
+      bindAutoGrow(ta, 220);
       ta.addEventListener('input', function () { list[i] = this.value; touch(); });
       var btns = document.createElement('div');
       btns.className = 'greet-btns';
@@ -1840,6 +1908,192 @@
     renderRegex(); touch();
   }
 
+  /* ================= 粘贴智能解析 ================= */
+
+  var pasteResult = null;
+  var FIELD_NAMES = {
+    name: '作品/世界名', description: '世界总纲', personality: '叙事基调', scenario: '世界当前情况',
+    first_mes: '主开局', mes_example: '叙事示例', creator_notes: '作者备注',
+    system_prompt: '系统提示', post_history_instructions: '历史后指令', creator: '作者',
+    character_version: '版本号', tags: '标签'
+  };
+
+  function openPasteModal() {
+    $('#pasteModal').hidden = false;
+    refreshAutoGrow("#pasteModal");
+    renderPasteResult(null);
+    setTimeout(function () { $('#pasteText').focus(); }, 50);
+  }
+  function closePasteModal() {
+    $('#pasteModal').hidden = true;
+    pasteResult = null;
+    $('#btnPasteApply').disabled = true;
+  }
+
+  function runPasteParse() {
+    var text = $('#pasteText').value;
+    if (!text.trim()) { toast('请先粘贴文本', 'err'); return; }
+    var r = M.parsePastedText(text, { splitLong: $('#pasteSplitLong').checked });
+    pasteResult = r.ok ? r : null;
+    renderPasteResult(r);
+    $('#btnPasteApply').disabled = !r.ok;
+    $('#pasteHint').textContent = r.ok ? ('识别类型：' + r.kind) : '';
+  }
+
+  function renderPasteResult(r) {
+    var box = $('#pasteResult');
+    box.innerHTML = '';
+    if (!r) return;
+    if (!r.ok) {
+      box.innerHTML = '<div class="empty-state"><div class="es-icon">U0001F9E9</div><div class="es-title">无法解析</div><div class="es-text">' + M.str(r.error) + '。请带上 【标签】、“标签：”、# 标题 等标记再试。</div></div>';
+      return;
+    }
+    // JSON 直接导入：没有 fields/entries 结构，单独提示
+    if (r.kind === 'json') {
+      var jc = r.card && (r.card.data || r.card);
+      var jn = document.createElement('div');
+      jn.className = 'paste-sum';
+      var c1 = document.createElement('span'); c1.className = 'chip ok';
+      c1.textContent = 'JSON 角色卡';
+      var c2 = document.createElement('span'); c2.className = 'chip ok';
+      c2.textContent = '作品：' + (M.str(jc && jc.name) || '未命名');
+      jn.appendChild(c1); jn.appendChild(c2);
+      box.appendChild(jn);
+      var jp = document.createElement('p'); jp.className = 'tip';
+      jp.textContent = '将直接按 JSON 导入逻辑读取（支持 V1 / V2 / V3），不会覆盖已有字段以外的其他内容。';
+      box.appendChild(jp);
+      return;
+    }
+    if (r.kind === 'book' && r.nativeBook) {
+      var bn = document.createElement('div');
+      bn.className = 'paste-sum';
+      var b1 = document.createElement('span'); b1.className = 'chip ok'; b1.textContent = 'JSON 世界书';
+      var b2 = document.createElement('span'); b2.className = 'chip ok'; b2.textContent = r.nativeBook.entries.length + ' 条条目';
+      bn.appendChild(b1); bn.appendChild(b2);
+      box.appendChild(bn);
+      var bp = document.createElement('p'); bp.className = 'tip';
+      bp.textContent = '将导入到世界书库（非内嵌），你可以再把它设为某个作品的卡内世界书。';
+      box.appendChild(bp);
+      return;
+    }
+    // 概览
+    var sum = document.createElement('div');
+    sum.className = 'paste-sum';
+    var f = r.fields || {};
+    var cardKeys = Object.keys(f).filter(function (k) { return k !== "__greetings" && M.str(f[k]).trim(); });
+    var chip = function (cls, txt) { var s = document.createElement('span'); s.className = 'chip ' + cls; s.textContent = txt; sum.appendChild(s); };
+    chip('ok', '卡片字段 ' + cardKeys.length);
+    if ((f.__greetings || []).length) chip('ok', '备用开局 ' + f.__greetings.length);
+    chip((r.entries || []).length ? 'ok' : 'warn', '世界书条目 ' + r.entries.length);
+    box.appendChild(sum);
+    // 字段明细
+    cardKeys.forEach(function (k) {
+      var row = document.createElement('div');
+      row.className = 'paste-row';
+      var nm = document.createElement('span');
+      nm.className = 'pr-field';
+      nm.textContent = (FIELD_NAMES[k] || k) + (k === 'first_mes' ? '（主开局）' : '');
+      var vl = document.createElement('span');
+      vl.className = 'pr-val';
+      vl.textContent = M.str(f[k]).replace(/\s+/g, ' ').slice(0, 90);
+      vl.title = M.str(f[k]);
+      row.appendChild(nm); row.appendChild(vl);
+      box.appendChild(row);
+    });
+    (f.__greetings || []).forEach(function (g, i) {
+      var row = document.createElement('div');
+      row.className = 'paste-row';
+      var nm = document.createElement('span');
+      nm.className = 'pr-field';
+      nm.textContent = '备用开局 ' + (i + 1);
+      var vl = document.createElement('span');
+      vl.className = 'pr-val';
+      vl.textContent = M.str(g).replace(/\s+/g, ' ').slice(0, 90);
+      row.appendChild(nm); row.appendChild(vl);
+      box.appendChild(row);
+    });
+    // 条目明细
+    (r.entries || []).slice(0, 30).forEach(function (e) {
+      var row = document.createElement('div');
+      row.className = 'paste-row';
+      var nm = document.createElement('span');
+      nm.className = 'pr-field pr-entry';
+      nm.textContent = e.comment || '未命名条目';
+      var vl = document.createElement('span');
+      vl.className = 'pr-val';
+      vl.textContent = '关键词：' + (e.keys.join(', ') || '无') + ' · ' + e.content.replace(/\s+/g, ' ').slice(0, 70);
+      row.appendChild(nm); row.appendChild(vl);
+      box.appendChild(row);
+    });
+    if ((r.entries || []).length > 30) {
+      var more = document.createElement('p'); more.className = 'hint'; more.textContent = '…只显示前 30 条，共 ' + (r.entries || []).length + ' 条'; box.appendChild(more);
+    }
+    (r.notes || []).forEach(function (n) {
+      var p2 = document.createElement('p'); p2.className = 'tip'; p2.textContent = n; box.appendChild(p2);
+    });
+  }
+
+  function applyPasteResult() {
+    if (!pasteResult || !pasteResult.ok) return;
+    var r = pasteResult;
+    var toNew = $('#pasteToNew').checked;
+    // JSON 直接走 adoptCard
+    if (r.kind === 'json' && r.card) {
+      if (toNew) createWork(false);
+      adoptCard(r.card);
+      closePasteModal(); toast('已导入 JSON 角色卡', 'ok'); return;
+    }
+    if (r.kind === 'book' && r.nativeBook) {
+      bkMode = toNew ? 'lib' : 'lib';
+      if (toNew) createLib(false);
+      importNativeBookList(r.nativeBook);
+      setFormTab('tab-lib');
+      closePasteModal(); toast('已导入世界书：' + r.nativeBook.entries.length + ' 条', 'ok'); return;
+    }
+    // 文本解析结果
+    if (toNew) createWork(false);
+    var f = r.fields || {};
+    var written = [];
+    Object.keys(f).forEach(function (k) {
+      if (k === '__greetings' || k === 'tags') return;
+      if (!M.str(f[k]).trim()) return;
+      if (!M.str(card[k]).trim()) { card[k] = f[k]; written.push(FIELD_NAMES[k] || k); }
+    });
+    if (f.tags && f.tags.length && !card.tags.length) { card.tags = f.tags; written.push('标签'); }
+    if ((f.__greetings || []).length) {
+      f.__greetings.forEach(function (g) { card.alternate_greetings.push(g); });
+      written.push('备用开局 ' + f.__greetings.length + ' 条');
+    }
+    if (r.entries.length) {
+      var bk = card.character_book;
+      var replace = !bk.entries.length || confirm('当前作品的卡内世界书已有 ' + bk.entries.length + ' 条：\n确定 = 覆盖，取消 = 追加到末尿');
+      if (replace) bk.entries = r.entries; else bk.entries = bk.entries.concat(r.entries);
+      written.push('世界书 ' + r.entries.length + ' 条');
+    }
+    syncFieldsToForm();
+    renderAll();
+    touch();
+    closePasteModal();
+    toast(written.length ? ('已应用：' + written.join('、')) : '没有可写入的内容', 'ok', 5200);
+  }
+
+  function bindPasteParse() {
+    $('#btnPasteParse').addEventListener('click', openPasteModal);
+    $('#btnPasteRun').addEventListener('click', runPasteParse);
+    $('#btnPasteApply').addEventListener('click', applyPasteResult);
+    $('#btnPasteClear').addEventListener('click', function () {
+      $('#pasteText').value = '';
+      renderPasteResult(null);
+      $('#btnPasteApply').disabled = true;
+      $('#pasteHint').textContent = '';
+    });
+    document.querySelectorAll('#pasteModal [data-close]').forEach(function (el) {
+      el.addEventListener('click', closePasteModal);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !$('#pasteModal').hidden) closePasteModal();
+    });
+  }
   /* ================= 模板片段 ================= */
 
   var TPL = {
@@ -2292,8 +2546,11 @@
   /* ================= 导入 ================= */
 
   function adoptCard(obj) {
-    card = M.isInternalCard(obj) ? M.fromInternalCard(obj) : M.fromCardObject(obj);
-    if (!card.rules.length) card.rules = M.defaultRules();
+    invalidateHelper();
+    var wasInternal = M.isInternalCard(obj);
+    card = wasInternal ? M.fromInternalCard(obj) : M.fromCardObject(obj);
+    // 导入外部卡时不注入默认条例，避免把我们的条例写进别人的卡
+    if (!card.rules.length && wasInternal) card.rules = M.defaultRules();
     var w = currentWork();
     if (w) { w.name = card.name.trim() || '未命名作品'; }
     previewIdx = 0;
@@ -2520,15 +2777,16 @@
   async function saveArchive() {
     try {
       var base = sanitizeFilename(card.name || '未命名世界');
+      // 未设目录：直接下载，并提示可以设目录（避免突然弹出文件夹选择框）
       if (!archiveDirHandle) {
         if (typeof window.showDirectoryPicker !== 'function') {
           download(new Blob([buildArchiveMd()], { type: 'text/markdown' }), base + '_' + timestampForFile() + '.md');
           toast('当前浏览器不支持直接写入文件夹，已改为下载 .md', 'info', 6000);
           return;
         }
-        archiveDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-        try { await idbSet('archiveDir', archiveDirHandle); } catch (e) { /* ignore */ }
-        updateArchiveInfo();
+        download(new Blob([buildArchiveMd()], { type: 'text/markdown' }), base + '_' + timestampForFile() + '.md');
+        toast('已下载 .md存档。如果想直接写入文件夹，请先点「U0001F4C1 设置保存目录」', 'ok', 6500);
+        return;
       }
       var fname = await writeArchiveFile(base + '_' + timestampForFile() + '.md');
       toast('MD 存档已保存：' + fname, 'ok', 4200);
@@ -2770,6 +3028,7 @@
           b.setAttribute('aria-selected', on ? 'true' : 'false');
         });
         Array.prototype.slice.call(container.children).forEach(function (p) { p.classList.toggle('active', p.id === id); });
+        refreshAutoGrow("#" + id);
         saved[groupName] = id;
         try { localStorage.setItem(LS_TAB, JSON.stringify(saved)); } catch (e) { /* ignore */ }
         if (id === 'tab-json') renderPreview();
@@ -2842,6 +3101,7 @@
     bindCover();
     bindAvatar();
     bindUi();
+    bindPasteParse();
 
     ['#newEntryCat', '#libNewCat'].forEach(function (sel) {
       var el = $(sel);
@@ -2921,8 +3181,7 @@
       var w = currentWork();
       card = w ? w.card : M.emptyCard();
       if (!card.rules) card.rules = [];
-      if (!card.rules.length) card.rules = M.defaultRules();
-      if (!card.tone) card.tone = M.emptyTone();
+            if (!card.tone) card.tone = M.emptyTone();
       renderAll();
       if (restored) toast('已载入本机作品库', 'ok', 2600);
       saveWorks();
