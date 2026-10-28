@@ -2177,7 +2177,7 @@
       '{{char}}: （行动的后果与新的线索）'
     ].join('\n'),
     'status-html': [
-      '<div style="background:linear-gradient(135deg,#161a2b,#241a46);border:1px solid #5b5fb8;border-radius:14px;padding:14px 16px;margin-top:14px;color:#e2e4ff;font-size:0.92em;line-height:1.8;">',
+      '<div style="background:#121212;border:1px solid #E9E9E4;border-left:4px solid #2BD576;border-radius:4px;padding:14px 16px;margin-top:14px;color:#E9E9E4;font-size:0.92em;line-height:1.8;">',
       '  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;">',
       '    <span>⏰ 时间：{{date}} {{time}}</span>',
       '    <span>📍 地点：（当前位置）</span>',
@@ -2186,7 +2186,7 @@
       '    <span>🧭 局势：（当前态势）</span>',
       '    <span>⚠️ 危险度：（低 / 中 / 高）</span>',
       '  </div>',
-      '  <div style="border-top:1px dashed #5b5fb8;margin-top:8px;padding-top:8px;color:#aab0e0;">🎯 当前目标：（玩家眼前的任务或线索）</div>',
+      '  <div style="border-top:1px dashed #E9E9E4;margin-top:8px;padding-top:8px;color:#6EE7A8;">🎯 当前目标：（玩家眼前的任务或线索）</div>',
       '</div>'
     ].join('\n'),
     'status-lite': [
@@ -2416,8 +2416,8 @@
   var chatAvaUrl = null;
   var PREVIEW_CSS = [
     'html,body{margin:0;background:transparent;}',
-    'body{font:14px/1.75 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:#e7e9f2;word-break:break-word;padding:12px 14px;}',
-    'em.act{color:#a9b8ff;font-style:italic;} span.say{color:#f3d58b;}',
+    'body{font:14px/1.75 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:#E9E9E4;word-break:break-word;padding:12px 14px;}',
+    'em.act{color:#6EE7A8;font-style:italic;} span.say{color:#f3d58b;}',
     'img{max-width:100%;}'
   ].join('');
 
