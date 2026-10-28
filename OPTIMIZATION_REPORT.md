@@ -6,6 +6,25 @@
 
 ---
 
+
+## v0.3.1 日间模式 + 夜间提亮
+
+### 问题
+夜间主题下顶栏尚可，主内容区（panels / tabs / inputs）偏闷、对比不足。
+
+### 改动
+1. **夜间提亮**：抬高 `--surface` / `--surface-2` / `--surface-3`，加强 `--border` / `--text` / `--muted`，绿色撞色略更醒目（`#2EE882`）；装饰网格透明度下调，避免灰雾罩住内容。
+2. **日间模式**（白:红:黑 ≈ 6:3:1）：
+   - 白/浅底 `#F4F4EF` / `#FFFFFF` / `#F7F7F2`
+   - 红撞色 `#E03131`（hover `#F04343`，字色 `#C62828`）
+   - 黑线条与正文 `#0A0A0A`
+3. 顶栏「☾夜间 / ☀日间」切换；`html[data-theme="night"|"day"]` 覆盖同一套 CSS 变量；`localStorage.stCardForgeTheme_v1` 持久化；`<head>` 内联脚本防闪烁。
+4. Logo SVG 改用 `var(--accent)` / `var(--line)`，两主题共用几何语言。
+
+### 文件
+`style.css`、`index.html`、`app.js`、`README.md`、本报告；预览 `docs/v0.3.1-theme-night.png` / `docs/v0.3.1-theme-day.png`
+
+---
 ## v0.3 UI 主题（黑 / 绿 / #E9E9E4 · 构成主义 / 包豪斯）
 
 ### 色板（约 黑:绿:#E9E9E4 = 6:3:1）

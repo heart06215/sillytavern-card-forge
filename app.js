@@ -3170,6 +3170,35 @@
     renderJsonIfVisible();
   }
 
+
+  /* ================= 界面主题（日间 / 夜间） ================= */
+  var LS_THEME = 'stCardForgeTheme_v1';
+
+  function getUiTheme() {
+    var t = document.documentElement.getAttribute('data-theme');
+    return (t === 'day' || t === 'night') ? t : 'night';
+  }
+
+  function applyUiTheme(theme, persist) {
+    var t = (theme === 'day') ? 'day' : 'night';
+    document.documentElement.setAttribute('data-theme', t);
+    var nightBtn = $('#btnThemeNight');
+    var dayBtn = $('#btnThemeDay');
+    if (nightBtn) nightBtn.setAttribute('aria-pressed', t === 'night' ? 'true' : 'false');
+    if (dayBtn) dayBtn.setAttribute('aria-pressed', t === 'day' ? 'true' : 'false');
+    if (persist !== false) {
+      try { localStorage.setItem(LS_THEME, t); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function bindUiTheme() {
+    applyUiTheme(getUiTheme(), false);
+    var nightBtn = $('#btnThemeNight');
+    var dayBtn = $('#btnThemeDay');
+    if (nightBtn) nightBtn.addEventListener('click', function () { applyUiTheme('night'); });
+    if (dayBtn) dayBtn.addEventListener('click', function () { applyUiTheme('day'); });
+  }
+
   /* ================= 启动 ================= */
 
   function init() {
@@ -3188,6 +3217,7 @@
     bindAvatar();
     bindUi();
     bindPasteParse();
+    bindUiTheme();
 
     ['#newEntryCat', '#libNewCat'].forEach(function (sel) {
       var el = $(sel);

@@ -1,9 +1,17 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="night">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>酒馆卡锻造工坊 · SillyTavern Card Forge</title>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('stCardForgeTheme_v1');
+        if (t === 'day' || t === 'night') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,12 +19,12 @@
     <div class="brand">
       <span class="logo" aria-hidden="true" title="构成主义几何标">
         <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" focusable="false">
-          <rect x="0" y="0" width="40" height="40" fill="#0a0a0a"/>
-          <rect x="4" y="4" width="14" height="14" fill="#2BD576"/>
-          <circle cx="29" cy="11" r="6" fill="none" stroke="#E9E9E4" stroke-width="1.6"/>
-          <polygon points="6,34 20,18 34,34" fill="none" stroke="#E9E9E4" stroke-width="1.5"/>
-          <rect x="22" y="24" width="12" height="3" fill="#2BD576"/>
-          <line x1="4" y1="36" x2="18" y2="36" stroke="#E9E9E4" stroke-width="1.5"/>
+          <rect x="0" y="0" width="40" height="40" fill="var(--logo-bg)"/>
+          <rect x="4" y="4" width="14" height="14" fill="var(--accent)"/>
+          <circle cx="29" cy="11" r="6" fill="none" stroke="var(--line)" stroke-width="1.6"/>
+          <polygon points="6,34 20,18 34,34" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+          <rect x="22" y="24" width="12" height="3" fill="var(--accent)"/>
+          <line x1="4" y1="36" x2="18" y2="36" stroke="var(--line)" stroke-width="1.5"/>
         </svg>
       </span>
       <div>
@@ -26,6 +34,10 @@
       <span class="geo-strip" aria-hidden="true"><i class="g-sq"></i><i class="g-tri"></i><i class="g-cir"></i><i class="g-bar"></i></span>
     </div>
     <div class="top-actions">
+      <div class="theme-toggle" role="group" aria-label="界面主题">
+        <button type="button" id="btnThemeNight" aria-pressed="true" title="夜间：黑 / 绿 / #E9E9E4"><span class="tt-ico" aria-hidden="true">☾</span>夜间</button>
+        <button type="button" id="btnThemeDay" aria-pressed="false" title="日间：白 / 红 / 黑"><span class="tt-ico" aria-hidden="true">☀</span>日间</button>
+      </div>
       <button id="btnPasteParse" class="btn" title="粘贴文本，自动解析为角色卡 / 世界书">📋 粘贴解析</button>
       <button id="btnCoverTop" class="cover-btn" title="设置世界卡封面">
         <img id="coverThumb" alt="" hidden>
