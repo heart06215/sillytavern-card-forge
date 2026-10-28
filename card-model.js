@@ -1350,13 +1350,13 @@
       issues.push({ level: 'warn', text: '建议填写主开局：导入后第一句对话会是空的', tab: 'tab-open', focus: '[data-field="first_mes"]' });
     }
     if (!str(card.description).trim() && !card.character_book.entries.length) {
-      issues.push({ level: 'warn', text: '总纲与世界书都空：至少写一段总纲，或去「卡内世界书」加条目', tab: 'tab-book' });
+      issues.push({ level: 'warn', text: '总纲与卡内世界书都空：至少写一段总纲，或去「卡内世界书」加条目', tab: 'tab-book' });
     }
     if (!str(card.description).trim() && card.character_book.entries.length) {
       issues.push({ level: 'info', text: '总纲为空、设定在世界书里（常见写法，可直接导出）', tab: 'tab-world', focus: '[data-field="description"]' });
     }
     if (!card.character_book.entries.length) {
-      issues.push({ level: 'info', text: '尚未内嵌世界书：在本页新建条目，或从世界书库一键嵌入', tab: 'tab-book' });
+      issues.push({ level: 'info', text: '卡内世界书仍空：在本页新建条目，或从「世界书」嵌入副本', tab: 'tab-book' });
     }
     if (card.character_book.entries.length && !card.character_book.name) {
       issues.push({ level: 'info', text: '世界书未命名：导出时会自动用作品名命名并写入 extensions.world', tab: 'tab-book', focus: '#f-book-name' });

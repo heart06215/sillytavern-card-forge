@@ -122,7 +122,7 @@ ok('PNG 内嵌世界书条目数一致', back.data.character_book.entries.length
 // 10. 体检
 const h = M.health(M.emptyCard());
 ok('空卡体检报告缺少作品名与主开局提示', h.some(function (x) { return x.text.indexOf('作品名') !== -1; }) && h.some(function (x) { return x.text.indexOf('主开局') !== -1; }));
-ok('空卡体检提示尚未内嵌世界书', h.some(function (x) { return x.text.indexOf('内嵌世界书') !== -1; }));
+ok('空卡体检提示卡内世界书仍空', h.some(function (x) { return x.text.indexOf('卡内世界书') !== -1; }));
 
 // 11. 从 V3 卡还原内部模型（无损）
 const restored = M.fromCardObject(bundle.primary);

@@ -18,7 +18,7 @@
   var DB_NAME = 'stCardMaker';
   var BOOK_PAGE = 30;
   var MAX_AVATAR_SIDE = 1024;
-  var FORM_TABS = ['tab-overview', 'tab-world', 'tab-rules', 'tab-open', 'tab-book', 'tab-lib', 'tab-ui'];
+  var FORM_TABS = ['tab-overview', 'tab-world', 'tab-rules', 'tab-open', 'tab-book', 'tab-lib', 'tab-ui', 'tab-help'];
 
   /* ================= 状态 ================= */
 
@@ -243,7 +243,7 @@
       var el = $('[data-field="name"]');
       if (el) { el.focus(); el.select && el.select(); }
     }, 60);
-    toast(dup ? '已复制当前作品' : '已新建：先填作品名，再写开局、嵌入世界书', 'ok', 4200);
+    toast(dup ? '已复制当前作品' : '已新建：先填作品名，再写开局与卡内世界书', 'ok', 4200);
   }
 
   function deleteWork() {
@@ -478,8 +478,8 @@
     renderBookStats();
     if (!book.entries.length) {
       var emptyTxt = bkMode === 'lib'
-        ? '这本世界书还是空的。独立世界书导出后可在酒馆「世界书」面板导入，挂到任意角色卡上。'
-        : '还没有卡内条目。点上方「嵌入到当前卡」从世界书库导入，或「＋ 新建条目 / 快速常驻条目」。只有卡内条目会随 PNG/JSON 导出。';
+        ? '这本独立世界书还是空的。写好后可导出给酒馆，或到「卡内世界书」嵌入副本。本页改动不会自动进角色卡。'
+        : '还没有卡内条目。可直接「＋ 新建条目」，或从上方「世界书」嵌入副本。只有卡内条目会随角色卡导出。';
       wrap.innerHTML = '<div class="empty-state"><div class="es-icon">' + (bkMode === 'lib' ? '📕' : '📚') + '</div><div class="es-title">还没有条目</div><div class="es-text">' + emptyTxt + '</div></div>';
       return;
     }
@@ -1058,7 +1058,7 @@
     var wrap = $('#libList');
     wrap.innerHTML = '';
     if (!libBooks.items.length) {
-      wrap.innerHTML = '<div class="empty-state"><div class="es-icon">📕</div><div class="es-title">世界书库为空</div><div class="es-text">新建一本独立世界书，或导入酒馆原生世界书 JSON。建好后可在「世界书（内嵌）」页一键嵌入角色卡。</div></div>';
+      wrap.innerHTML = '<div class="empty-state"><div class="es-icon">📕</div><div class="es-title">世界书库为空</div><div class="es-text">新建一本独立世界书，或导入酒馆原生 JSON。本页不绑角色卡；要进卡请到「卡内世界书」嵌入副本。</div></div>';
       $('#libHint').textContent = '';
       renderEmbedPanel();
       return;
@@ -1232,7 +1232,7 @@
       renderBookList();
       renderCatFilter();
       setFormTab('tab-lib');
-      toast('已存入世界书库：' + item.name + '（' + item.entries.length + ' 条）', 'ok', 4200);
+      toast('已另存为独立世界书：' + item.name + '（' + item.entries.length + ' 条）。角色卡内原文仍在', 'ok', 4800);
     });
   }
 
@@ -2391,13 +2391,13 @@
     chips.push(
       { cls: 'info', t: '备用开局 ' + card.alternate_greetings.length, tab: 'tab-open' },
       { cls: 'info', t: '条例 ' + rules.filter(function (r) { return r.enabled; }).length + ' 条', tab: 'tab-rules' },
-      { cls: stats.total ? 'ok' : 'warn', t: stats.total ? ('已内嵌世界书 ' + stats.total + ' 条' + (stats.constant ? '（常驻 ' + stats.constant + '）' : '')) : '未内嵌世界书', tab: 'tab-book' },
+      { cls: stats.total ? 'ok' : 'warn', t: stats.total ? ('卡内世界书 ' + stats.total + ' 条' + (stats.constant ? '（常驻 ' + stats.constant + '）' : '')) : '无卡内世界书', tab: 'tab-book' },
       { cls: 'info', t: '正则 ' + card.extensions.regex_scripts.length, tab: 'tab-ui' },
       { cls: kb >= 2048 ? 'warn' : 'info', t: '体积 ' + (kb >= 1024 ? (kb / 1024).toFixed(2) + ' MB' : kb.toFixed(0) + ' KB') }
     );
     M.health(card).forEach(function (h) {
       // 已用上方摘要覆盖的「作品名 / 主开局 / 内嵌世界书」不再重复刷屏
-      if (/作品名|主开局|尚未内嵌世界书/.test(h.text)) return;
+      if (/作品名|主开局|卡内世界书仍空/.test(h.text)) return;
       chips.push({
         cls: h.level === 'error' ? 'bad' : (h.level === 'warn' ? 'warn' : 'info'),
         t: h.text, tab: h.tab || '', focus: h.focus || ''
@@ -2735,7 +2735,7 @@
     if (!b) { toast('请先选择一本世界书', 'err'); return false; }
     if (!b.entries.length) { toast('这本世界书还是空的，先加几条再嵌入', 'err'); return false; }
     if (!opts.force && card.character_book.entries.length &&
-        !confirm('当前卡内已有 ' + card.character_book.entries.length + ' 条，嵌入「' + (b.name || '未命名') + '」（' + b.entries.length + ' 条）会覆盖，继续？')) {
+        !confirm('当前卡内已有 ' + card.character_book.entries.length + ' 条。嵌入独立书「' + (b.name || '未命名') + '」的副本（' + b.entries.length + ' 条）会覆盖卡内现有条目，继续？')) {
       return false;
     }
     card.character_book = M.normalizeBook({
@@ -2751,7 +2751,7 @@
     renderBookList(); renderCatFilter();
     renderEmbedPanel(); renderGuideStrip();
     touch();
-    toast('已嵌入卡内世界书「' + (card.character_book.name || b.name || '未命名') + '」：' + card.character_book.entries.length + ' 条（导出将写入 character_book）', 'ok', 5200);
+    toast('已将独立书副本写入卡内「' + (card.character_book.name || b.name || '未命名') + '」：' + card.character_book.entries.length + ' 条（两边之后互不影响）', 'ok', 5200);
     return true;
   }
 
@@ -2763,16 +2763,16 @@
     var nm = card.character_book.name || '';
     if (n) {
       status.className = 'tip embed-status is-ok';
-      status.innerHTML = '✅ 当前卡内已内嵌 <b>' + n + '</b> 条' + (nm ? '（' + nm + '）' : '') + '。导出 PNG / JSON 时会完整写入 <code>character_book</code>。';
+      status.innerHTML = '✅ 卡内已有 <b>' + n + '</b> 条' + (nm ? '（' + nm + '）' : '') + '。导出角色卡时会写入 <code>character_book</code> 全文。';
     } else {
       var libs = libBooksWithEntries();
       status.className = 'tip embed-status is-warn';
       status.innerHTML = libs.length
-        ? '⚠️ 卡内世界书还是空的。世界书库里有 <b>' + libs.length + '</b> 本有内容的书——请在下方选择并点「嵌入到当前卡」，否则导出不会带上世界书。'
-        : '⚠️ 卡内世界书还是空的。可点「＋ 新建条目 / 快速常驻条目」，或先去世界书库建好再回来嵌入。';
+        ? '⚠️ 卡内还是空的。「世界书」里有 <b>' + libs.length + '</b> 本独立书——选一本点「嵌入副本到卡内」，否则导出角色卡不会带世界书。'
+        : '⚠️ 卡内还是空的。可直接新建卡内条目，或先去「世界书」写独立书再回来嵌入副本。';
     }
     var cur = sel.value;
-    sel.innerHTML = '<option value="">— 选择一本世界书 —</option>';
+    sel.innerHTML = '<option value="">— 选择独立世界书 —</option>';
     (libBooks.items || []).forEach(function (b) {
       var o = document.createElement('option');
       o.value = b.id;
@@ -2788,7 +2788,7 @@
     var steps = [
       { id: 'name', label: '作品名', done: !!card.name.trim(), tab: 'tab-overview', focus: '[data-field="name"]', need: true },
       { id: 'open', label: '主开局', done: !!card.first_mes.trim(), tab: 'tab-open', focus: '[data-field="first_mes"]', need: false },
-      { id: 'book', label: '内嵌世界书', done: card.character_book.entries.length > 0, tab: 'tab-book', need: false, warn: !card.character_book.entries.length },
+      { id: 'book', label: '卡内世界书', done: card.character_book.entries.length > 0, tab: 'tab-book', need: false, warn: !card.character_book.entries.length },
       { id: 'export', label: '导出', done: !!(card.name.trim()), tab: 'tab-save', need: false }
     ];
     bar.innerHTML = '';
@@ -2806,7 +2806,7 @@
         if (s.id === 'export') {
           setFormTab('tab-overview');
           toast(card.name.trim()
-            ? (card.character_book.entries.length ? '可以点顶栏「生成 PNG 世界卡」或「导出 JSON」了' : '可以导出了；若要带世界书，先到「世界书（内嵌）」嵌入')
+            ? (card.character_book.entries.length ? '可以点顶栏「生成 PNG 世界卡」或「导出 JSON」了' : '可以导出了；若要带设定，先到「卡内世界书」写条目或嵌入副本')
             : '先填作品名，再导出', card.name.trim() ? 'ok' : 'err', 4200);
           return;
         }
@@ -2824,8 +2824,8 @@
     hint.className = 'guide-hint';
     if (!card.name.trim()) hint.textContent = '下一步：填写作品名';
     else if (!card.first_mes.trim()) hint.textContent = '下一步：写一段主开局（可稍后补）';
-    else if (!card.character_book.entries.length) hint.textContent = '建议：嵌入世界书，导出才会带上设定';
-    else hint.textContent = '就绪：可导出 PNG / JSON（已内嵌 ' + card.character_book.entries.length + ' 条世界书）';
+    else if (!card.character_book.entries.length) hint.textContent = '建议：写卡内世界书（或从「世界书」嵌入副本）';
+    else hint.textContent = '就绪：可导出（卡内世界书 ' + card.character_book.entries.length + ' 条）';
     bar.appendChild(hint);
   }
 
@@ -2846,7 +2846,7 @@
     }
     var libs = libBooksWithEntries();
     if (!card.character_book.entries.length && libs.length) {
-      if (!confirm('卡内世界书是空的，但世界书库里有 ' + libs.length + ' 本有内容的书。\n导出角色卡不会带上世界书库的内容（只导出卡内 character_book）。\n\n确定继续空世界书导出？\n（取消 = 去「世界书（内嵌）」页嵌入）')) {
+      if (!confirm('卡内世界书是空的，但「世界书」里有 ' + libs.length + ' 本独立书。\n导出角色卡只会带卡内 character_book，不会自动带上独立库。\n\n确定继续空世界书导出？\n（取消 = 去「卡内世界书」嵌入副本）')) {
         setFormTab('tab-book');
         renderEmbedPanel();
         return false;
@@ -2858,8 +2858,8 @@
   function exportBookSummary() {
     var n = card.character_book.entries.length;
     var nm = card.character_book.name || '';
-    if (!n) return '未内嵌世界书';
-    return '已内嵌世界书 ' + n + ' 条' + (nm ? '「' + nm + '」' : '');
+    if (!n) return '无卡内世界书';
+    return '卡内世界书 ' + n + ' 条' + (nm ? '「' + nm + '」' : '');
   }
 
   function ensurePermission(dir) {
@@ -3281,7 +3281,7 @@
       }
       if (modalOpen) return; // 模态打开时不抢占 Ctrl+S / Ctrl+Enter / 切页
       var k = e.key;
-      if (k >= '1' && k <= '7') {
+      if (k >= '1' && k <= '8') {
         e.preventDefault();
         setFormTab(FORM_TABS[parseInt(k, 10) - 1]);
       } else if (k.toLowerCase() === 's') {
@@ -3404,7 +3404,7 @@
 
     $('#btnEmbedLib').addEventListener('click', function () {
       var id = $('#embedLibSelect').value;
-      if (!id) { toast('请先在下拉框选择一本世界书', 'err'); return; }
+      if (!id) { toast('请先选择一本独立世界书', 'err'); return; }
       embedLibBookById(id);
     });
     $('#btnQuickConstant').addEventListener('click', function () {
@@ -3418,9 +3418,20 @@
       syncBookNameFromCard();
       renderBookList(); renderCatFilter(); renderEmbedPanel(); renderGuideStrip();
       bookChanged();
-      toast('已添加常驻条目「核心法则」，直接改内容即可', 'ok', 4200);
+      toast('已在卡内添加常驻条目「核心法则」，直接改内容即可', 'ok', 4200);
     });
     $('#btnGotoLib').addEventListener('click', function () { setFormTab('tab-lib'); });
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('[data-help-anchor]');
+      if (!a) return;
+      e.preventDefault();
+      setFormTab('tab-help');
+      var id = a.getAttribute('data-help-anchor');
+      setTimeout(function () {
+        var el = document.getElementById(id);
+        if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }, 80);
+    });
     document.addEventListener('click', function (e) {
       var qs = e.target.closest && e.target.closest('.quick-step');
       if (!qs) return;

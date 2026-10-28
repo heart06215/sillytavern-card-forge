@@ -830,6 +830,84 @@ code {
   .quick-steps { grid-template-columns: 1fr; }
 }
 
+
+/* ---------- v0.5 职责条幅 + 教程子页 ---------- */
+.role-banner { border-style: solid; }
+.role-banner.role-card { box-shadow: inset 3px 0 0 var(--accent); border-color: var(--accent-border); }
+.role-banner.role-lib { box-shadow: inset 3px 0 0 var(--line); border-color: var(--border-strong); }
+.role-banner .panel-title { margin-bottom: 4px; }
+
+.help-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.help-toc {
+  position: sticky;
+  top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.help-toc-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.help-toc-link {
+  display: block;
+  text-decoration: none;
+  color: var(--text);
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+.help-toc-link:hover {
+  background: var(--accent-weak);
+  border-color: var(--accent-border);
+  color: var(--accent-2);
+}
+.help-body { min-width: 0; }
+.help-section { scroll-margin-top: 12px; }
+.help-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 8px 0 10px;
+}
+.help-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.help-card b { display: block; margin-bottom: 6px; color: var(--accent-2); }
+.help-card p { margin: 0 0 6px; font-size: 13px; color: var(--muted); line-height: 1.65; }
+.help-card p:last-child { margin-bottom: 0; }
+.help-steps {
+  margin: 8px 0 10px;
+  padding-left: 1.25em;
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+.help-steps li { margin-bottom: 4px; }
+
+@media (max-width: 900px) {
+  .help-layout { grid-template-columns: 1fr; }
+  .help-toc { position: static; flex-direction: row; flex-wrap: wrap; }
+  .help-toc-title { width: 100%; }
+  .help-compare { grid-template-columns: 1fr; }
+}
 /* ---------- 世界书 ---------- */
 .book-stats { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 0 4px; }
 .stat {
