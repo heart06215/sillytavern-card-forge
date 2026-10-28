@@ -51,6 +51,7 @@
   </header>
 
   <div id="healthBar" class="health-bar" aria-label="卡片体检"></div>
+  <div id="guideStrip" class="guide-strip" role="navigation" aria-label="制卡步骤"></div>
 
   <main class="layout">
     <!-- ============ 左侧：作品与内容编辑 ============ -->
@@ -60,8 +61,8 @@
         <button class="tab" role="tab" data-tab="tab-world">🌍 世界观</button>
         <button class="tab" role="tab" data-tab="tab-rules">📜 条例与文风</button>
         <button class="tab" role="tab" data-tab="tab-open">🎬 开局</button>
-        <button class="tab" role="tab" data-tab="tab-book">📚 卡内世界书<span class="badge" id="badge-book">0</span></button>
-        <button class="tab" role="tab" data-tab="tab-lib">📕 世界书库</button>
+        <button class="tab" role="tab" data-tab="tab-book">📚 世界书（内嵌）<span class="badge" id="badge-book">0</span></button>
+        <button class="tab" role="tab" data-tab="tab-lib">📕 世界书库（独立）</button>
         <button class="tab" role="tab" data-tab="tab-ui">🖥 界面与扩展</button>
       </nav>
 
@@ -77,7 +78,7 @@
               <button id="btnDupWork" class="btn small" title="复制当前作品，用于做一个变体">⎘ 复制当前作品</button>
               <button id="btnDelWork" class="btn small danger" title="删除当前作品">✕ 删除当前作品</button>
             </div>
-            <p class="tip">作品保存在本机浏览器（IndexedDB），可随时切换、复制、删除；生成 PNG 时会把当前作品写入图片。</p>
+            <p class="tip">作品保存在本机浏览器（IndexedDB）。<b>必填只有作品名</b>；主开局强烈建议；世界书请在「世界书（内嵌）」页写入，导出时才会进卡。</p>
           </div>
 
           <div class="panel">
@@ -126,19 +127,27 @@
             </label>
           </div>
 
-          <div class="panel">
-            <div class="panel-title">🗺 这张卡由八层组成</div>
-            <div class="layer-grid">
-              <div class="layer"><b>① 作品</b><span>名称、作者、标签与作者备注</span></div>
-              <div class="layer"><b>② 世界观</b><span>世界总纲与当前处境</span></div>
-              <div class="layer"><b>③ 叙事</b><span>文风基调、示例与深度提示</span></div>
-              <div class="layer"><b>④ 条例</b><span>行为规则：什么能写、什么不能写</span></div>
-              <div class="layer"><b>⑤ 开局</b><span>多个故事入口，酒馆里可切换</span></div>
-              <div class="layer"><b>⑥ 世界书</b><span>碎片设定，按关键词或常驻注入</span></div>
-              <div class="layer"><b>⑦ 界面</b><span>状态栏等显示层正则、原生扩展</span></div>
-              <div class="layer"><b>⑧ 前端</b><span>统一世界面板（HTML UI）</span></div>
+          <div class="panel guide-panel">
+            <div class="panel-title">⚡ 最少三步做出可导入的卡</div>
+            <div class="quick-steps">
+              <button type="button" class="quick-step" data-goto="tab-overview" data-focus="[data-field=&quot;name&quot;]">
+                <span class="qs-num">1</span>
+                <span class="qs-body"><b>填作品名</b><i>本页上方「作品 / 世界名」</i></span>
+              </button>
+              <button type="button" class="quick-step" data-goto="tab-open" data-focus="[data-field=&quot;first_mes&quot;]">
+                <span class="qs-num">2</span>
+                <span class="qs-body"><b>写主开局</b><i>「开局」页第一段对白</i></span>
+              </button>
+              <button type="button" class="quick-step" data-goto="tab-book">
+                <span class="qs-num">3</span>
+                <span class="qs-body"><b>嵌入世界书</b><i>新建条目，或从世界书库一键嵌入</i></span>
+              </button>
+              <button type="button" class="quick-step qs-export" data-action="export-hint">
+                <span class="qs-num">✓</span>
+                <span class="qs-body"><b>导出</b><i>顶栏「生成 PNG」或「导出 JSON」</i></span>
+              </button>
             </div>
-            <p class="tip">💡 世界卡的核心是「世界」：总纲说明世界与讲述者，细节放世界书，开局提供入口，条例约束输出，正则负责界面。世界书名会自动同步到 <code>extensions.world</code>，导入酒馆时可关联内嵌世界书。快捷键：<code>Ctrl+1</code>–<code>Ctrl+7</code> 切页 · <code>Ctrl+S</code> 导出 JSON · <code>Ctrl+Enter</code> 生成 PNG · <code>Ctrl+Shift+V</code> 粘贴解析。</p>
+            <p class="tip">💡 总纲、条例、界面都是加分项，不挡导出。世界书必须写进<strong>卡内（内嵌）</strong>才会进 PNG/JSON；世界书库里的独立书不会自动带上。快捷键：<code>Ctrl+1</code>–<code>7</code> 切页 · <code>Ctrl+S</code> 导出 JSON · <code>Ctrl+Enter</code> 生成 PNG · <code>Ctrl+Shift+V</code> 粘贴解析。</p>
           </div>
         </section>
 
@@ -278,6 +287,23 @@
 
         <!-- ---------- 世界书 ---------- -->
         <section class="tab-panel" id="tab-book">
+          <div class="panel embed-panel" id="embedPanel">
+            <div class="panel-title">📎 内嵌到角色卡（导出必经）</div>
+            <p class="tip embed-status" id="embedStatus">当前卡内世界书为空。导出 PNG/JSON 时只会写入卡内条目；世界书库里的书不会自动带上。</p>
+            <div class="embed-actions row">
+              <label class="field embed-pick">
+                <span class="label">从世界书库嵌入</span>
+                <select id="embedLibSelect" aria-label="选择要嵌入的世界书">
+                  <option value="">— 选择一本世界书 —</option>
+                </select>
+              </label>
+              <button type="button" id="btnEmbedLib" class="btn small primary" title="把选中的世界书完整写入当前角色卡">📥 嵌入到当前卡</button>
+              <button type="button" id="btnQuickConstant" class="btn small" title="快速加一条常驻设定">＋ 快速常驻条目</button>
+              <button type="button" id="btnGotoLib" class="btn small ghost" title="去世界书库编辑独立书">去世界书库 →</button>
+            </div>
+            <p class="tip">嵌入会把条目<strong>全文</strong>写入 <code>character_book</code>（不是只存引用）。世界书名会同步到 <code>extensions.world</code>，酒馆可识别。</p>
+          </div>
+
           <div class="panel">
             <div class="panel-title">📚 世界书设置 character_book</div>
             <div class="grid4 book-meta">
@@ -319,7 +345,7 @@
         <section class="tab-panel" id="tab-lib">
           <div class="panel">
             <div class="panel-title">📕 世界书库（非内嵌世界书）<span class="hint" id="libHint"></span></div>
-            <p class="tip">这里的每一本都是一个<b>独立世界书</b>：导出为 <code>.json</code> 后，可在酒馆「世界书」面板直接导入，挂到任意角色卡上；也可以<b>设为当前作品的卡内世界书</b>。字段与酒馆原生世界书完全一致（41 个字段，含 uid、characterFilter、triggers 等）。</p>
+            <p class="tip">这里的每一本都是一个<b>独立世界书</b>：导出为 <code>.json</code> 后，可在酒馆「世界书」面板直接导入，挂到任意角色卡上；也可以点下方「设为卡内世界书」或到「世界书（内嵌）」页一键嵌入。字段与酒馆原生世界书完全一致（41 个字段）。<b>注意：只放在库里、不嵌入的话，导出角色卡不会带上。</b></p>
             <div id="libList" class="works-list"></div>
             <div class="row">
               <button id="btnNewLib" class="btn small primary">＋ 新建世界书</button>
@@ -343,7 +369,7 @@
             <div class="row">
               <button id="btnLibImport" class="btn small">⬆ 导入世界书 .json</button>
               <button id="btnLibExport" class="btn small primary">⬇ 导出世界书 .json</button>
-              <button id="btnLibToCard" class="btn small" title="把当前世界书设为当前作品的卡内世界书">📥 设为卡内世界书</button>
+              <button id="btnLibToCard" class="btn small primary" title="把当前世界书完整嵌入当前作品（写入 character_book）">📥 嵌入到当前角色卡</button>
               <button id="btnCardToLib" class="btn small" title="把当前作品的卡内世界书存入世界书库">📤 从卡内世界书存入</button>
               <input type="file" id="libFile" accept=".json,application/json" hidden>
             </div>
