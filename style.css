@@ -1,4 +1,4 @@
-/* ============ 酒馆角色卡生成器 · 视觉样式 ============ */
+/* ============ 酒馆卡锻造工坊 · 视觉样式 ============ */
 :root {
   --bg: #0b0c11;
   --bg-grad: radial-gradient(1200px 600px at 10% -10%, rgba(139, 124, 246, .10), transparent 60%),
@@ -99,6 +99,15 @@ body {
 .chip.ok { color: #8fe0b6; border-color: rgba(63, 191, 127, .28); background: rgba(63, 191, 127, .08); }
 .chip.warn { color: #f2cf86; border-color: rgba(229, 176, 74, .3); background: rgba(229, 176, 74, .08); }
 .chip.bad { color: #ffa3a8; border-color: rgba(239, 95, 103, .32); background: rgba(239, 95, 103, .08); }
+.chip-go {
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: inherit;
+  transition: border-color .15s, transform .12s, background .15s;
+}
+.chip-go:hover { border-color: rgba(139, 124, 246, .55); transform: translateY(-1px); }
+.chip-go:focus-visible { outline: none; box-shadow: var(--ring); }
 
 /* ---------- 布局 ---------- */
 .layout {

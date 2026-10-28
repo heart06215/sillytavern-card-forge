@@ -373,6 +373,19 @@ ok('简约条为单行', M.renderUiTemplate(M.defaultUi('minimal')).indexOf('⏰
 ok('主题切换改变颜色', M.renderUiTemplate(M.normalizeUi({ template: 'status', theme: 'ember' })).indexOf('#2a1710') !== -1);
 ok('自定义颜色优先于主题', M.renderUiTemplate(M.normalizeUi({ template: 'status', theme: 'ember', colors: { from: '#123456' } })).indexOf('#123456') !== -1);
 
+
+// ---- 体检跳转元数据 ----
+console.log('\n== 体检 tab/focus ==');
+{
+  const empty = M.emptyCard();
+  const issues = M.health(empty);
+  const nameIssue = issues.find(h => /作品|世界名|name/i.test(h.text));
+  const openIssue = issues.find(h => /主开局|first_mes/i.test(h.text));
+  ok('缺名带 tab-overview', nameIssue && nameIssue.tab === 'tab-overview');
+  ok('缺开局带 tab-open', openIssue && openIssue.tab === 'tab-open');
+  ok('缺名带 focus 选择器', nameIssue && typeof nameIssue.focus === 'string' && nameIssue.focus.length > 0);
+}
+
 console.log('\n全部通过：' + passed + ' 项断言 ✔');
 
 // 用项目自带的 PNG 工具造一张最小 PNG（与 test_card.js 同源思路）

@@ -16,7 +16,7 @@
       </div>
     </div>
     <div class="top-actions">
-      <button id="btnPasteParse" class="btn" title="粘贴文本，自动解析为角色卡 / 世界书">U0001F4CB 粘贴解析</button>
+      <button id="btnPasteParse" class="btn" title="粘贴文本，自动解析为角色卡 / 世界书">📋 粘贴解析</button>
       <button id="btnCoverTop" class="cover-btn" title="设置世界卡封面">
         <img id="coverThumb" alt="" hidden>
         <span id="coverThumbPh">🖼 封面</span>
@@ -33,14 +33,14 @@
   <main class="layout">
     <!-- ============ 左侧：作品与内容编辑 ============ -->
     <section class="form-col">
-      <nav class="tabs" data-tabs="form" role="tablist">
-        <button class="tab" data-tab="tab-overview">🧭 作品</button>
-        <button class="tab" data-tab="tab-world">🌍 世界观</button>
-        <button class="tab" data-tab="tab-rules">📜 条例与文风</button>
-        <button class="tab" data-tab="tab-open">🎬 开局</button>
-        <button class="tab" data-tab="tab-book">📚 卡内世界书<span class="badge" id="badge-book">0</span></button>
-        <button class="tab" data-tab="tab-lib">📕 世界书库</button>
-        <button class="tab" data-tab="tab-ui">🖥 界面与扩展</button>
+      <nav class="tabs" data-tabs="form" role="tablist" aria-label="内容编辑">
+        <button class="tab" role="tab" data-tab="tab-overview">🧭 作品</button>
+        <button class="tab" role="tab" data-tab="tab-world">🌍 世界观</button>
+        <button class="tab" role="tab" data-tab="tab-rules">📜 条例与文风</button>
+        <button class="tab" role="tab" data-tab="tab-open">🎬 开局</button>
+        <button class="tab" role="tab" data-tab="tab-book">📚 卡内世界书<span class="badge" id="badge-book">0</span></button>
+        <button class="tab" role="tab" data-tab="tab-lib">📕 世界书库</button>
+        <button class="tab" role="tab" data-tab="tab-ui">🖥 界面与扩展</button>
       </nav>
 
       <div class="tab-panels" data-panels="form">
@@ -105,16 +105,18 @@
           </div>
 
           <div class="panel">
-            <div class="panel-title">🗺 这张卡由六层组成</div>
+            <div class="panel-title">🗺 这张卡由八层组成</div>
             <div class="layer-grid">
-              <div class="layer"><b>① 世界观</b><span>世界总纲与当前处境：这个世界是什么</span></div>
-              <div class="layer"><b>② 叙事</b><span>文风基调与示例：世界怎样被讲述</span></div>
-              <div class="layer"><b>③ 条例</b><span>行为规则：什么能写、什么不能写</span></div>
-              <div class="layer"><b>④ 开局</b><span>多个故事入口，酒馆里可切换</span></div>
-              <div class="layer"><b>⑤ 世界书</b><span>碎片设定，按关键词或常驻注入</span></div>
-              <div class="layer"><b>⑥ 界面</b><span>状态栏等显示层正则、原生扩展</span></div>
+              <div class="layer"><b>① 作品</b><span>名称、作者、标签与作者备注</span></div>
+              <div class="layer"><b>② 世界观</b><span>世界总纲与当前处境</span></div>
+              <div class="layer"><b>③ 叙事</b><span>文风基调、示例与深度提示</span></div>
+              <div class="layer"><b>④ 条例</b><span>行为规则：什么能写、什么不能写</span></div>
+              <div class="layer"><b>⑤ 开局</b><span>多个故事入口，酒馆里可切换</span></div>
+              <div class="layer"><b>⑥ 世界书</b><span>碎片设定，按关键词或常驻注入</span></div>
+              <div class="layer"><b>⑦ 界面</b><span>状态栏等显示层正则、原生扩展</span></div>
+              <div class="layer"><b>⑧ 前端</b><span>统一世界面板（HTML UI）</span></div>
             </div>
-            <p class="tip">💡 世界卡的核心是「世界」：总纲说明世界与讲述者，细节放世界书，开局提供入口，条例约束输出，正则负责界面。世界书名会自动同步到 <code>extensions.world</code>，导入酒馆时可关联内嵌世界书。</p>
+            <p class="tip">💡 世界卡的核心是「世界」：总纲说明世界与讲述者，细节放世界书，开局提供入口，条例约束输出，正则负责界面。世界书名会自动同步到 <code>extensions.world</code>，导入酒馆时可关联内嵌世界书。快捷键：<code>Ctrl+1</code>–<code>Ctrl+7</code> 切页 · <code>Ctrl+S</code> 导出 JSON · <code>Ctrl+Enter</code> 生成 PNG · <code>Ctrl+Shift+V</code> 粘贴解析。</p>
           </div>
         </section>
 
@@ -488,12 +490,12 @@
 
     <!-- ============ 右侧：预览与输出 ============ -->
     <aside class="side-col">
-      <nav class="tabs side" data-tabs="side">
-        <button class="tab" data-tab="tab-preview">👀 预览</button>
-        <button class="tab" data-tab="tab-avatar">🖼 封面</button>
-        <button class="tab" data-tab="tab-save">💾 保存</button>
-        <button class="tab" data-tab="tab-ai">🤖 AI</button>
-        <button class="tab" data-tab="tab-json">{ } JSON</button>
+      <nav class="tabs side" data-tabs="side" role="tablist" aria-label="预览与输出">
+        <button class="tab" role="tab" data-tab="tab-preview">👀 预览</button>
+        <button class="tab" role="tab" data-tab="tab-avatar">🖼 封面</button>
+        <button class="tab" role="tab" data-tab="tab-save">💾 保存</button>
+        <button class="tab" role="tab" data-tab="tab-ai">🤖 AI</button>
+        <button class="tab" role="tab" data-tab="tab-json">{ } JSON</button>
       </nav>
 
       <div class="tab-panels" data-panels="side">
@@ -570,7 +572,7 @@
             <label class="field"><span class="label">世界构想（一两句灵感即可）</span><textarea id="ai-desc" rows="5" placeholder="例：一座永夜将至的极北之城，城墙外的雾一夜之间退了三里，钟楼里亮着一盏不该亮着的灯。"></textarea></label>
             <button id="btnAiGen" class="btn primary full">🤖 AI 生成并填充世界</button>
             <div id="aiStatus" class="hint"></div>
-            <p class="tip">生成会覆盖当前作品内容（有确认）。若跨域失败，请改用「启动角色卡工具-兼容模式.bat」。</p>
+            <p class="tip">生成会覆盖当前作品内容（有确认）。若跨域失败，请改用「启动制卡工具-兼容模式.bat」。</p>
           </div>
         </section>
 
@@ -585,11 +587,11 @@
     </aside>
   </main>
 
-<div id="pasteModal" class="modal" hidden>
+<div id="pasteModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="pasteModalTitle">
   <div class="modal-mask" data-close="1"></div>
   <div class="modal-box">
     <div class="modal-head">
-      <span class="modal-title">U0001F4CB 粘贴文本智能解析</span>
+      <span class="modal-title" id="pasteModalTitle">📋 粘贴文本智能解析</span>
       <button class="icon-btn" data-close="1" title="关闭">✕</button>
     </div>
     <div class="modal-body">
@@ -606,7 +608,7 @@
       <div class="row">
         <label class="checkbox-field"><input id="pasteSplitLong" type="checkbox"><span>长内容自动拆分为多个条目</span></label>
         <label class="checkbox-field"><input id="pasteToNew" type="checkbox" checked><span>写入新建作品（不覆盖当前）</span></label>
-        <button id="btnPasteRun" class="btn small primary">U0001F50D 解析</button>
+        <button id="btnPasteRun" class="btn small primary">🔍 解析</button>
         <button id="btnPasteClear" class="btn small ghost">清空</button>
       </div>
       <div id="pasteResult" class="paste-result"></div>

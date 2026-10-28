@@ -1321,37 +1321,39 @@
     };
   }
 
-  // 卡的基础体检结果（用于界面提示）
+  // 卡的基础体检结果（用于界面提示；tab/focus 供点击跳转）
   function health(card) {
     var issues = [];
-    if (!str(card.name).trim()) issues.push({ level: 'error', text: '缺少作品 / 世界名 name' });
-    if (!str(card.first_mes).trim()) issues.push({ level: 'error', text: '缺少主开局 first_mes' });
+    if (!str(card.name).trim()) {
+      issues.push({ level: 'error', text: '缺少作品 / 世界名 name', tab: 'tab-overview', focus: '[data-field="name"]' });
+    }
+    if (!str(card.first_mes).trim()) {
+      issues.push({ level: 'error', text: '缺少主开局 first_mes', tab: 'tab-open', focus: '[data-field="first_mes"]' });
+    }
     if (!str(card.description).trim() && !card.character_book.entries.length) {
-      issues.push({ level: 'warn', text: '世界总纲与世界书都为空，模型将缺乏世界信息' });
+      issues.push({ level: 'warn', text: '世界总纲与世界书都为空，模型将缺乏世界信息', tab: 'tab-world', focus: '[data-field="description"]' });
     }
     if (!str(card.description).trim() && card.character_book.entries.length) {
-      issues.push({ level: 'info', text: '世界总纲为空，设定主要放在世界书中（这是常见写法）' });
+      issues.push({ level: 'info', text: '世界总纲为空，设定主要放在世界书中（这是常见写法）', tab: 'tab-world', focus: '[data-field="description"]' });
     }
     if (card.character_book.entries.length && !card.character_book.name) {
-      issues.push({ level: 'warn', text: '世界书未命名：导入酒馆时将无法自动关联' });
+      issues.push({ level: 'warn', text: '世界书未命名：导入酒馆时将无法自动关联', tab: 'tab-book', focus: '#f-book-name' });
     }
     var constantN = card.character_book.entries.filter(function (e) { return e.constant && e.enabled; }).length;
     if (card.character_book.entries.length && !constantN) {
-      issues.push({ level: 'info', text: '没有常驻条目：世界规则最好设为常驻，避免关键词未命中时丢失' });
+      issues.push({ level: 'info', text: '没有常驻条目：世界规则最好设为常驻，避免关键词未命中时丢失', tab: 'tab-book' });
     }
     var rules = card.rules || [];
     var enabledRules = rules.filter(function (r) { return r.enabled; }).length;
     if (!enabledRules) {
-      issues.push({ level: 'warn', text: '没有启用任何条例：建议至少启用「不替玩家行动」' });
+      issues.push({ level: 'warn', text: '没有启用任何条例：建议至少启用「不替玩家行动」', tab: 'tab-rules' });
     }
     var tone = card.tone || emptyTone();
-    if (!tone.presets.length && !M_trim(tone.custom)) {
-      issues.push({ level: 'info', text: '未设置文风基调：可让文风更稳定' });
+    if (!tone.presets.length && !str(tone.custom).trim()) {
+      issues.push({ level: 'info', text: '未设置文风基调：可让文风更稳定', tab: 'tab-rules' });
     }
     return issues;
   }
-
-  function M_trim(s) { return str(s).trim(); }
 
   return {
     POSITIONS: POSITIONS,
