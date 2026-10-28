@@ -1,11 +1,11 @@
 @echo off
 chcp 65001 >nul
-title 酒馆角色卡生成器 - 本地服务器兼容模式
+title 酒馆卡锻造工坊 - 本地服务器兼容模式
 cd /d "%~dp0"
 
 rem 优先使用 python，其次 py 启动器；都没有则退回直接打开模式。
 rem 本模式通过 http://127.0.0.1 访问页面，可解决浏览器对 file:// 页面的
-rem 跨域限制（主要影响「AI 一键扩写」功能）。
+rem 跨域限制（主要影响「AI 扩写世界」功能）。
 
 where python >nul 2>nul
 if %errorlevel%==0 (

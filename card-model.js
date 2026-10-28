@@ -1253,17 +1253,36 @@
     return c;
   }
 
+  // 导出前补全世界书名：有条目却未命名时，用作品名自动命名（不改写条目，避免 extra 叠层）
+  function ensureBookForExport(card) {
+    var src = (card && card.character_book) || emptyBook();
+    var book = {
+      name: str(src.name),
+      scan_depth: src.scan_depth,
+      token_budget: src.token_budget,
+      recursive_scanning: !!src.recursive_scanning,
+      entries: Array.isArray(src.entries) ? src.entries : [],
+      extensions: (src.extensions && typeof src.extensions === 'object') ? src.extensions : {},
+      raw: (src.raw && typeof src.raw === 'object') ? src.raw : {}
+    };
+    if (book.entries.length && !book.name.trim()) {
+      var base = str(card && card.name).trim();
+      book.name = base ? (base + ' 世界书') : '世界书';
+    }
+    return book;
+  }
+
   // 内部模型 → 导出包：primary 为 JSON 文件内容；chunks 为 PNG 要写入的 tEXt 数据块
+  // 始终写出 data.character_book（含 entries 全文，不是仅引用 ID），供酒馆识别内嵌世界书
   function toExportBundle(card, opts) {
     opts = opts || {};
+    var book = ensureBookForExport(card);
     var ext = clone(card.extensions);
     ext.regex_scripts = card.extensions.regex_scripts.map(regexToExport);
     ext.talkativeness = card.extensions.talkativeness;
     ext.fav = !!card.extensions.fav;
     ext.depth_prompt = card.extensions.depth_prompt;
-    if (card.character_book.name) ext.world = card.character_book.name;
-
-    var book = card.character_book;
+    if (book.name) ext.world = book.name;
     var rules = card.rules || [];
     // 条例拼接：把各目标字段中启用的条例追加到该字段原文之后
     var composed = {};
@@ -1321,37 +1340,42 @@
     };
   }
 
-  // 卡的基础体检结果（用于界面提示）
+  // 卡的基础体检结果（用于界面提示；tab/focus 供点击跳转）
   function health(card) {
     var issues = [];
-    if (!str(card.name).trim()) issues.push({ level: 'error', text: '缺少作品 / 世界名 name' });
-    if (!str(card.first_mes).trim()) issues.push({ level: 'error', text: '缺少主开局 first_mes' });
+    if (!str(card.name).trim()) {
+      issues.push({ level: 'error', text: '缺少作品名：填写后即可导出', tab: 'tab-overview', focus: '[data-field="name"]' });
+    }
+    if (!str(card.first_mes).trim()) {
+      issues.push({ level: 'warn', text: '建议填写主开局：导入后第一句对话会是空的', tab: 'tab-open', focus: '[data-field="first_mes"]' });
+    }
     if (!str(card.description).trim() && !card.character_book.entries.length) {
-      issues.push({ level: 'warn', text: '世界总纲与世界书都为空，模型将缺乏世界信息' });
+      issues.push({ level: 'warn', text: '总纲与卡内世界书都空：至少写一段总纲，或去「卡内世界书」加条目', tab: 'tab-book' });
     }
     if (!str(card.description).trim() && card.character_book.entries.length) {
-      issues.push({ level: 'info', text: '世界总纲为空，设定主要放在世界书中（这是常见写法）' });
+      issues.push({ level: 'info', text: '总纲为空、设定在世界书里（常见写法，可直接导出）', tab: 'tab-world', focus: '[data-field="description"]' });
+    }
+    if (!card.character_book.entries.length) {
+      issues.push({ level: 'info', text: '卡内世界书仍空：在本页新建条目，或从「世界书」嵌入副本', tab: 'tab-book' });
     }
     if (card.character_book.entries.length && !card.character_book.name) {
-      issues.push({ level: 'warn', text: '世界书未命名：导入酒馆时将无法自动关联' });
+      issues.push({ level: 'info', text: '世界书未命名：导出时会自动用作品名命名并写入 extensions.world', tab: 'tab-book', focus: '#f-book-name' });
     }
     var constantN = card.character_book.entries.filter(function (e) { return e.constant && e.enabled; }).length;
     if (card.character_book.entries.length && !constantN) {
-      issues.push({ level: 'info', text: '没有常驻条目：世界规则最好设为常驻，避免关键词未命中时丢失' });
+      issues.push({ level: 'info', text: '没有常驻条目：世界规则最好设为常驻，避免关键词未命中时丢失', tab: 'tab-book' });
     }
     var rules = card.rules || [];
     var enabledRules = rules.filter(function (r) { return r.enabled; }).length;
     if (!enabledRules) {
-      issues.push({ level: 'warn', text: '没有启用任何条例：建议至少启用「不替玩家行动」' });
+      issues.push({ level: 'warn', text: '没有启用任何条例：建议至少启用「不替玩家行动」', tab: 'tab-rules' });
     }
     var tone = card.tone || emptyTone();
-    if (!tone.presets.length && !M_trim(tone.custom)) {
-      issues.push({ level: 'info', text: '未设置文风基调：可让文风更稳定' });
+    if (!tone.presets.length && !str(tone.custom).trim()) {
+      issues.push({ level: 'info', text: '未设置文风基调：可让文风更稳定', tab: 'tab-rules' });
     }
     return issues;
   }
-
-  function M_trim(s) { return str(s).trim(); }
 
   return {
     POSITIONS: POSITIONS,
@@ -1424,6 +1448,7 @@
     fromCardObject: fromCardObject,
     fromInternalCard: fromInternalCard,
     isInternalCard: isInternalCard,
+    ensureBookForExport: ensureBookForExport,
     toExportBundle: toExportBundle,
     health: health
   };

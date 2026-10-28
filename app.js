@@ -18,7 +18,7 @@
   var DB_NAME = 'stCardMaker';
   var BOOK_PAGE = 30;
   var MAX_AVATAR_SIDE = 1024;
-  var FORM_TABS = ['tab-overview', 'tab-world', 'tab-rules', 'tab-open', 'tab-book', 'tab-lib', 'tab-ui'];
+  var FORM_TABS = ['tab-overview', 'tab-world', 'tab-rules', 'tab-open', 'tab-book', 'tab-lib', 'tab-ui', 'tab-help'];
 
   /* ================= 状态 ================= */
 
@@ -31,7 +31,14 @@
   var previewIdx = 0;
   var pendingGenerate = false;
   var archiveDirHandle = null;
-  var bookView = { query: '', cat: '', limit: BOOK_PAGE };
+  var bookViews = {
+    card: { query: '', cat: '', limit: BOOK_PAGE },
+    lib: { query: '', cat: '', limit: BOOK_PAGE }
+  };
+  function bv() { return bookViews[bkMode] || bookViews.card; }
+  function resetBookView(mode) {
+    bookViews[mode || bkMode] = { query: '', cat: '', limit: BOOK_PAGE };
+  }
   var editingRuleId = null;
   var saveSettings = (function () {
     try {
@@ -207,7 +214,7 @@
   function afterWorkSwitch() {
     invalidateHelper();
     previewIdx = 0;
-    bookView = { query: '', cat: '', limit: BOOK_PAGE };
+    resetBookView('card');
     $('#bookSearch').value = '';
     editingRuleId = null;
     $('#ruleEditor').hidden = true;
@@ -221,6 +228,9 @@
     if (dup) {
       c = M.clone(card);
       c.name = c.name ? c.name + '（副本）' : '副本';
+    } else {
+      c.rules = M.defaultRules();
+      c.character_version = '1.0';
     }
     var w = { id: newWorkId(), name: c.name || '未命名作品', card: c, updatedAt: Date.now() };
     works.items.push(w);
@@ -229,7 +239,11 @@
     afterWorkSwitch();
     saveWorks();
     setFormTab('tab-overview');
-    toast(dup ? '已复制当前作品' : '已新建作品', 'ok');
+    setTimeout(function () {
+      var el = $('[data-field="name"]');
+      if (el) { el.focus(); el.select && el.select(); }
+    }, 60);
+    toast(dup ? '已复制当前作品' : '已新建：先填作品名，再写开局与卡内世界书', 'ok', 4200);
   }
 
   function deleteWork() {
@@ -253,7 +267,11 @@
   function renderWorks() {
     var wrap = $('#worksList');
     wrap.innerHTML = '';
-    if (!works.items.length) return;
+    if (!works.items.length) {
+      wrap.innerHTML = '<div class="empty-state"><div class="es-icon">📁</div><div class="es-title">还没有作品</div><div class="es-text">点「新建作品」开始，或导入一张 PNG / JSON 世界卡。</div></div>';
+      $('#worksHint').textContent = '';
+      return;
+    }
     works.items.forEach(function (w) {
       var item = document.createElement('div');
       item.className = 'work-item' + (w.id === works.activeId ? ' active' : '');
@@ -325,7 +343,10 @@
       var t = e.target;
       if (!t.hasAttribute || !t.hasAttribute('data-field')) return;
       card[t.getAttribute('data-field')] = t.value;
-      if (t.getAttribute('data-field') === 'name') refreshWorkName();
+      if (t.getAttribute('data-field') === 'name') {
+        refreshWorkName();
+        syncBookNameFromCard();
+      }
       updateCount(t);
       touch();
     });
@@ -429,9 +450,9 @@
     if (!currentBook().entries.length) return;
     function chip(label, value, n) {
       var b = document.createElement('button');
-      b.className = 'cat-chip' + (bookView.cat === value ? ' active' : '');
+      b.className = 'cat-chip' + (bv().cat === value ? ' active' : '');
       b.textContent = label + ' ' + n;
-      b.addEventListener('click', function () { bookView.cat = value; bookView.limit = BOOK_PAGE; renderBookList(); renderCatFilter(); });
+      b.addEventListener('click', function () { bv().cat = value; bv().limit = BOOK_PAGE; renderBookList(); renderCatFilter(); });
       wrap.appendChild(b);
     }
     chip('全部', '', currentBook().entries.length);
@@ -457,21 +478,21 @@
     renderBookStats();
     if (!book.entries.length) {
       var emptyTxt = bkMode === 'lib'
-        ? '这本世界书还是空的。独立世界书导出后可在酒馆「世界书」面板导入，挂到任意角色卡上。'
-        : '把地点、势力、人物、物品、规则拆成一条条碎片设定：命中关键词时才注入，比全部写进总纲更省 token。可用「模板新建」快速起步。';
+        ? '这本独立世界书还是空的。写好后可导出给酒馆，或到「卡内世界书」嵌入副本。本页改动不会自动进角色卡。'
+        : '还没有卡内条目。可直接「＋ 新建条目」，或从上方「世界书」嵌入副本。只有卡内条目会随角色卡导出。';
       wrap.innerHTML = '<div class="empty-state"><div class="es-icon">' + (bkMode === 'lib' ? '📕' : '📚') + '</div><div class="es-title">还没有条目</div><div class="es-text">' + emptyTxt + '</div></div>';
       return;
     }
-    var q = bookView.query;
+    var q = bv().query;
     var matched = [];
     book.entries.forEach(function (e, i) {
-      if (entryMatchesCat(e, bookView.cat) && (!q || entryHaystack(e).indexOf(q) !== -1)) matched.push(i);
+      if (entryMatchesCat(e, bv().cat) && (!q || entryHaystack(e).indexOf(q) !== -1)) matched.push(i);
     });
     if (!matched.length) {
       wrap.innerHTML = '<div class="empty-state"><div class="es-icon">🔍</div><div class="es-title">没有匹配的条目</div><div class="es-text">换个关键词，或切换到「全部」分类。</div></div>';
       return;
     }
-    var shown = matched.slice(0, bookView.limit);
+    var shown = matched.slice(0, bv().limit);
     shown.forEach(function (i) { wrap.appendChild(buildEntryEl(book.entries[i], i)); });
     var foot = document.createElement('div');
     foot.className = 'book-foot';
@@ -482,7 +503,7 @@
       var more = document.createElement('button');
       more.className = 'btn small';
       more.textContent = '加载更多（+' + Math.min(BOOK_PAGE, matched.length - shown.length) + '）';
-      more.addEventListener('click', function () { bookView.limit += BOOK_PAGE; renderBookList(); });
+      more.addEventListener('click', function () { bv().limit += BOOK_PAGE; renderBookList(); });
       foot.appendChild(more);
     }
     wrap.appendChild(foot);
@@ -517,7 +538,7 @@
   }
 
   function focusEntry(index) {
-    bookView.cat = ''; bookView.query = ''; bookView.limit = Math.max(BOOK_PAGE, index + 1);
+    bv().cat = ''; bv().query = ''; bv().limit = Math.max(BOOK_PAGE, index + 1);
     $(dom().search).value = '';
     setFormTab(bkMode === 'lib' ? 'tab-lib' : 'tab-book');
     renderCatFilter();
@@ -848,8 +869,8 @@
     if (extra && extra.keys) e.keys = M.toList(extra.keys);
     if (extra && extra.constant) e.constant = true;
     list.push(e);
-    bookView.cat = ''; bookView.query = ''; $(dom().search).value = '';
-    bookView.limit = Math.max(BOOK_PAGE, list.length);
+    bv().cat = ''; bv().query = ''; $(dom().search).value = '';
+    bv().limit = Math.max(BOOK_PAGE, list.length);
     renderCatFilter();
     renderBookList();
     bookChanged();
@@ -897,13 +918,44 @@
     var bk = currentBook();
     var replace = !bk.entries.length || confirm('当前世界书已有 ' + bk.entries.length + ' 条：\n确定 = 覆盖，取消 = 追加到末尾');
     if (replace) bk.entries = parsed.entries; else bk.entries = bk.entries.concat(parsed.entries);
-    if (parsed.name && !bk.name) bk.name = parsed.name;
-    if (bkMode === 'lib') syncLibToForm();
-    else syncFieldsToForm();
-    bookView.cat = ''; bookView.limit = BOOK_PAGE;
+    if (parsed.name && (replace || !bk.name)) bk.name = parsed.name;
+    if (replace && parsed.raw && typeof parsed.raw === 'object') bk.raw = parsed.raw;
+    if (bkMode === 'lib') {
+      var lb = activeLibBook();
+      if (lb) {
+        lb.entries = bk.entries;
+        lb.name = bk.name || lb.name;
+        lb.raw = bk.raw || lb.raw || {};
+      }
+      syncLibToForm();
+    } else {
+      syncFieldsToForm();
+    }
+    bv().cat = ''; bv().limit = BOOK_PAGE;
     renderBookList(); renderCatFilter();
     bookChanged();
     toast('世界书导入成功：' + parsed.entries.length + ' 条（' + (replace ? '已覆盖' : '已追加') + '）', 'ok', 4200);
+  }
+
+  // 独立世界书 JSON → 世界书库（粘贴解析 / 顶栏导入共用）
+  function importNativeBookList(parsed) {
+    if (!parsed || !parsed.entries || !parsed.entries.length) {
+      toast('世界书为空，无法导入', 'err');
+      return;
+    }
+    bkMode = 'lib';
+    if (!activeLibBook()) {
+      var nb = M.emptyBook();
+      libBooks.items.push({
+        id: newWorkId(), name: parsed.name || '未命名世界书',
+        scan_depth: nb.scan_depth, token_budget: nb.token_budget, recursive_scanning: false,
+        entries: [], extensions: {}, raw: {}, updatedAt: Date.now()
+      });
+      libBooks.activeId = libBooks.items[libBooks.items.length - 1].id;
+    }
+    importNativeBookIntoCurrent(parsed);
+    renderLibList();
+    setFormTab('tab-lib');
   }
 
   function exportCurrentBook() {
@@ -951,8 +1003,8 @@
     });
     $('#bookSearch').addEventListener('input', debounce(function () {
       bkMode = 'card';
-      bookView.query = this.value.trim().toLowerCase();
-      bookView.limit = BOOK_PAGE;
+      bv().query = this.value.trim().toLowerCase();
+      bv().limit = BOOK_PAGE;
       renderBookList();
     }, 150));
     $('#bookCollapseAll').addEventListener('change', function () {
@@ -1005,7 +1057,12 @@
   function renderLibList() {
     var wrap = $('#libList');
     wrap.innerHTML = '';
-    if (!libBooks.items.length) return;
+    if (!libBooks.items.length) {
+      wrap.innerHTML = '<div class="empty-state"><div class="es-icon">📕</div><div class="es-title">世界书库为空</div><div class="es-text">新建一本独立世界书，或导入酒馆原生 JSON。本页不绑角色卡；要进卡请到「卡内世界书」嵌入副本。</div></div>';
+      $('#libHint').textContent = '';
+      renderEmbedPanel();
+      return;
+    }
     libBooks.items.forEach(function (b) {
       var item = document.createElement('div');
       item.className = 'work-item' + (b.id === libBooks.activeId ? ' active' : '');
@@ -1021,6 +1078,7 @@
       wrap.appendChild(item);
     });
     $('#libHint').textContent = '共 ' + libBooks.items.length + ' 本';
+    renderEmbedPanel();
   }
 
   function switchLib(id) {
@@ -1028,7 +1086,7 @@
     saveLibBooks();
     libBooks.activeId = id;
     bkMode = 'lib';
-    bookView = { query: '', cat: '', limit: BOOK_PAGE };
+    resetBookView('lib');
     $('#libSearch').value = '';
     syncLibToForm();
     renderLibList();
@@ -1072,7 +1130,7 @@
     libBooks.items.push(item);
     libBooks.activeId = item.id;
     bkMode = 'lib';
-    bookView = { query: '', cat: '', limit: BOOK_PAGE };
+    resetBookView('lib');
     $('#libSearch').value = '';
     syncLibToForm();
     renderLibList();
@@ -1140,8 +1198,8 @@
     $('#btnLibAddFromTpl').addEventListener('click', function () { bkMode = 'lib'; openTemplatePicker(); });
     $('#libSearch').addEventListener('input', debounce(function () {
       bkMode = 'lib';
-      bookView.query = this.value.trim().toLowerCase();
-      bookView.limit = BOOK_PAGE;
+      bv().query = this.value.trim().toLowerCase();
+      bv().limit = BOOK_PAGE;
       renderBookList();
     }, 150));
     $('#libCollapseAll').addEventListener('change', function () {
@@ -1153,18 +1211,8 @@
     // 与卡内世界书互转
     $('#btnLibToCard').addEventListener('click', function () {
       var b = activeLibBook();
-      if (!b || !b.entries.length) { toast('当前世界书是空的', 'err'); return; }
-      if (card.character_book.entries.length && !confirm('当前作品的卡内世界书已有 ' + card.character_book.entries.length + ' 条，设为「' + (b.name || '未命名') + '」会覆盖，继续？')) return;
-      card.character_book = M.normalizeBook({
-        name: b.name, scan_depth: b.scan_depth, token_budget: b.token_budget,
-        recursive_scanning: b.recursive_scanning, entries: b.entries.map(function (e) { return M.entryToCharBook(e); })
-      });
-      bkMode = 'card';   // 必须切回卡内模式，否则渲染会写进世界书库容器
-      syncFieldsToForm();
-      renderBookList(); renderCatFilter();
-      touch();
-      setFormTab('tab-book');
-      toast('已设为卡内世界书：' + b.entries.length + ' 条', 'ok', 4200);
+      if (!b) { toast('请先选中一本世界书', 'err'); return; }
+      if (embedLibBookById(b.id)) setFormTab('tab-book');
     });
     $('#btnCardToLib').addEventListener('click', function () {
       var bk = card.character_book;
@@ -1184,7 +1232,7 @@
       renderBookList();
       renderCatFilter();
       setFormTab('tab-lib');
-      toast('已存入世界书库：' + item.name + '（' + item.entries.length + ' 条）', 'ok', 4200);
+      toast('已另存为独立世界书：' + item.name + '（' + item.entries.length + ' 条）。角色卡内原文仍在', 'ok', 4800);
     });
   }
 
@@ -1945,7 +1993,7 @@
     box.innerHTML = '';
     if (!r) return;
     if (!r.ok) {
-      box.innerHTML = '<div class="empty-state"><div class="es-icon">U0001F9E9</div><div class="es-title">无法解析</div><div class="es-text">' + M.str(r.error) + '。请带上 【标签】、“标签：”、# 标题 等标记再试。</div></div>';
+      box.innerHTML = '<div class="empty-state"><div class="es-icon">🧩</div><div class="es-title">无法解析</div><div class="es-text">' + M.str(r.error) + '。请带上 【标签】、“标签：”、# 标题 等标记再试。</div></div>';
       return;
     }
     // JSON 直接导入：没有 fields/entries 结构，单独提示
@@ -2044,7 +2092,7 @@
       closePasteModal(); toast('已导入 JSON 角色卡', 'ok'); return;
     }
     if (r.kind === 'book' && r.nativeBook) {
-      bkMode = toNew ? 'lib' : 'lib';
+      bkMode = 'lib';
       if (toNew) createLib(false);
       importNativeBookList(r.nativeBook);
       setFormTab('tab-lib');
@@ -2066,7 +2114,7 @@
     }
     if (r.entries.length) {
       var bk = card.character_book;
-      var replace = !bk.entries.length || confirm('当前作品的卡内世界书已有 ' + bk.entries.length + ' 条：\n确定 = 覆盖，取消 = 追加到末尿');
+      var replace = !bk.entries.length || confirm('当前作品的卡内世界书已有 ' + bk.entries.length + ' 条：\n确定 = 覆盖，取消 = 追加到末尾');
       if (replace) bk.entries = r.entries; else bk.entries = bk.entries.concat(r.entries);
       written.push('世界书 ' + r.entries.length + ' 条');
     }
@@ -2131,7 +2179,7 @@
       '{{char}}: （行动的后果与新的线索）'
     ].join('\n'),
     'status-html': [
-      '<div style="background:linear-gradient(135deg,#161a2b,#241a46);border:1px solid #5b5fb8;border-radius:14px;padding:14px 16px;margin-top:14px;color:#e2e4ff;font-size:0.92em;line-height:1.8;">',
+      '<div style="background:#121212;border:1px solid #E9E9E4;border-left:4px solid #2BD576;border-radius:4px;padding:14px 16px;margin-top:14px;color:#E9E9E4;font-size:0.92em;line-height:1.8;">',
       '  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;">',
       '    <span>⏰ 时间：{{date}} {{time}}</span>',
       '    <span>📍 地点：（当前位置）</span>',
@@ -2140,7 +2188,7 @@
       '    <span>🧭 局势：（当前态势）</span>',
       '    <span>⚠️ 危险度：（低 / 中 / 高）</span>',
       '  </div>',
-      '  <div style="border-top:1px dashed #5b5fb8;margin-top:8px;padding-top:8px;color:#aab0e0;">🎯 当前目标：（玩家眼前的任务或线索）</div>',
+      '  <div style="border-top:1px dashed #E9E9E4;margin-top:8px;padding-top:8px;color:#6EE7A8;">🎯 当前目标：（玩家眼前的任务或线索）</div>',
       '</div>'
     ].join('\n'),
     'status-lite': [
@@ -2300,6 +2348,8 @@
   var schedulePreviewRender = debounce(function () {
     renderChatPreview();
     renderHealth();
+    renderGuideStrip();
+    renderEmbedPanel();
     if (isTabActive('tab-json')) renderPreview();
   }, 250);
   function scheduleSide() { schedulePreviewRender(); }
@@ -2315,6 +2365,17 @@
     catch (e) { pre.textContent = String(e); }
   }
 
+  function jumpHealth(h) {
+    if (!h || !h.tab) return;
+    setFormTab(h.tab);
+    if (h.focus) {
+      setTimeout(function () {
+        var el = document.querySelector(h.focus);
+        if (el) { el.focus(); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+      }, 60);
+    }
+  }
+
   function renderHealth() {
     var bar = $('#healthBar');
     var stats = M.bookStats(card.character_book);
@@ -2323,21 +2384,35 @@
     var kb = size / 1024;
     var rules = card.rules || [];
     var chips = [];
-    if (card.name.trim()) chips.push({ cls: 'ok', t: '作品：' + card.name.trim() });
-    if (card.first_mes.trim()) chips.push({ cls: 'ok', t: '主开局 ✓' });
+    if (card.name.trim()) chips.push({ cls: 'ok', t: '作品：' + card.name.trim(), tab: 'tab-overview', focus: '[data-field="name"]' });
+    else chips.push({ cls: 'bad', t: '缺少作品名', tab: 'tab-overview', focus: '[data-field="name"]' });
+    if (card.first_mes.trim()) chips.push({ cls: 'ok', t: '主开局 ✓', tab: 'tab-open', focus: '[data-field="first_mes"]' });
+    else chips.push({ cls: 'warn', t: '建议补主开局', tab: 'tab-open', focus: '[data-field="first_mes"]' });
     chips.push(
-      { cls: 'info', t: '备用开局 ' + card.alternate_greetings.length },
-      { cls: 'info', t: '条例 ' + rules.filter(function (r) { return r.enabled; }).length + ' 条' },
-      { cls: 'info', t: '世界书 ' + stats.total + ' 条' + (stats.constant ? '（常驻 ' + stats.constant + '）' : '') },
-      { cls: 'info', t: '正则 ' + card.extensions.regex_scripts.length },
+      { cls: 'info', t: '备用开局 ' + card.alternate_greetings.length, tab: 'tab-open' },
+      { cls: 'info', t: '条例 ' + rules.filter(function (r) { return r.enabled; }).length + ' 条', tab: 'tab-rules' },
+      { cls: stats.total ? 'ok' : 'warn', t: stats.total ? ('卡内世界书 ' + stats.total + ' 条' + (stats.constant ? '（常驻 ' + stats.constant + '）' : '')) : '无卡内世界书', tab: 'tab-book' },
+      { cls: 'info', t: '正则 ' + card.extensions.regex_scripts.length, tab: 'tab-ui' },
       { cls: kb >= 2048 ? 'warn' : 'info', t: '体积 ' + (kb >= 1024 ? (kb / 1024).toFixed(2) + ' MB' : kb.toFixed(0) + ' KB') }
     );
-    M.health(card).forEach(function (h) { chips.push({ cls: h.level === 'error' ? 'bad' : (h.level === 'warn' ? 'warn' : 'info'), t: h.text }); });
+    M.health(card).forEach(function (h) {
+      // 已用上方摘要覆盖的「作品名 / 主开局 / 内嵌世界书」不再重复刷屏
+      if (/作品名|主开局|卡内世界书仍空/.test(h.text)) return;
+      chips.push({
+        cls: h.level === 'error' ? 'bad' : (h.level === 'warn' ? 'warn' : 'info'),
+        t: h.text, tab: h.tab || '', focus: h.focus || ''
+      });
+    });
     bar.innerHTML = '';
     chips.forEach(function (c) {
-      var s = document.createElement('span');
-      s.className = 'chip ' + c.cls;
+      var s = document.createElement(c.tab ? 'button' : 'span');
+      s.className = 'chip ' + c.cls + (c.tab ? ' chip-go' : '');
       s.textContent = c.t;
+      if (c.tab) {
+        s.type = 'button';
+        s.title = '点击跳转到对应页签';
+        s.addEventListener('click', function () { jumpHealth(c); });
+      }
       bar.appendChild(s);
     });
   }
@@ -2345,8 +2420,8 @@
   var chatAvaUrl = null;
   var PREVIEW_CSS = [
     'html,body{margin:0;background:transparent;}',
-    'body{font:14px/1.75 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:#e7e9f2;word-break:break-word;padding:12px 14px;}',
-    'em.act{color:#a9b8ff;font-style:italic;} span.say{color:#f3d58b;}',
+    'body{font:14px/1.75 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:#E9E9E4;word-break:break-word;padding:12px 14px;}',
+    'em.act{color:#6EE7A8;font-style:italic;} span.say{color:#f3d58b;}',
     'img{max-width:100%;}'
   ].join('');
 
@@ -2554,7 +2629,7 @@
     var w = currentWork();
     if (w) { w.name = card.name.trim() || '未命名作品'; }
     previewIdx = 0;
-    bookView = { query: '', cat: '', limit: BOOK_PAGE };
+    resetBookView('card');
     $('#bookSearch').value = '';
     editingRuleId = null;
     $('#ruleEditor').hidden = true;
@@ -2640,10 +2715,151 @@
 
   /* ================= 导出 / 生成 ================= */
 
-  function validateCard() {
-    if (!card.name.trim()) { toast('请先填写「作品 / 世界名」', 'err'); setFormTab('tab-overview'); $('[data-field="name"]').focus(); return false; }
-    if (!card.first_mes.trim()) { toast('请先填写「主开局」', 'err'); setFormTab('tab-open'); $('[data-field="first_mes"]').focus(); return false; }
+  function syncBookNameFromCard() {
+    var bk = card.character_book;
+    if (!bk) return;
+    if (!bk.name.trim() && bk.entries.length && card.name.trim()) {
+      bk.name = card.name.trim() + ' 世界书';
+      var nm = $('#f-book-name');
+      if (nm) nm.value = bk.name;
+    }
+  }
+
+  function libBooksWithEntries() {
+    return (libBooks.items || []).filter(function (b) { return b && b.entries && b.entries.length; });
+  }
+
+  function embedLibBookById(id, opts) {
+    opts = opts || {};
+    var b = (libBooks.items || []).filter(function (x) { return x.id === id; })[0];
+    if (!b) { toast('请先选择一本世界书', 'err'); return false; }
+    if (!b.entries.length) { toast('这本世界书还是空的，先加几条再嵌入', 'err'); return false; }
+    if (!opts.force && card.character_book.entries.length &&
+        !confirm('当前卡内已有 ' + card.character_book.entries.length + ' 条。嵌入独立书「' + (b.name || '未命名') + '」的副本（' + b.entries.length + ' 条）会覆盖卡内现有条目，继续？')) {
+      return false;
+    }
+    card.character_book = M.normalizeBook({
+      name: b.name || (card.name.trim() ? card.name.trim() + ' 世界书' : '世界书'),
+      scan_depth: b.scan_depth, token_budget: b.token_budget,
+      recursive_scanning: b.recursive_scanning,
+      entries: b.entries.map(function (e) { return M.entryToCharBook(e); }),
+      extensions: b.extensions || {}
+    });
+    syncBookNameFromCard();
+    bkMode = 'card';
+    syncFieldsToForm();
+    renderBookList(); renderCatFilter();
+    renderEmbedPanel(); renderGuideStrip();
+    touch();
+    toast('已将独立书副本写入卡内「' + (card.character_book.name || b.name || '未命名') + '」：' + card.character_book.entries.length + ' 条（两边之后互不影响）', 'ok', 5200);
     return true;
+  }
+
+  function renderEmbedPanel() {
+    var status = $('#embedStatus');
+    var sel = $('#embedLibSelect');
+    if (!status || !sel) return;
+    var n = card.character_book.entries.length;
+    var nm = card.character_book.name || '';
+    if (n) {
+      status.className = 'tip embed-status is-ok';
+      status.innerHTML = '✅ 卡内已有 <b>' + n + '</b> 条' + (nm ? '（' + nm + '）' : '') + '。导出角色卡时会写入 <code>character_book</code> 全文。';
+    } else {
+      var libs = libBooksWithEntries();
+      status.className = 'tip embed-status is-warn';
+      status.innerHTML = libs.length
+        ? '⚠️ 卡内还是空的。「世界书」里有 <b>' + libs.length + '</b> 本独立书——选一本点「嵌入副本到卡内」，否则导出角色卡不会带世界书。'
+        : '⚠️ 卡内还是空的。可直接新建卡内条目，或先去「世界书」写独立书再回来嵌入副本。';
+    }
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">— 选择独立世界书 —</option>';
+    (libBooks.items || []).forEach(function (b) {
+      var o = document.createElement('option');
+      o.value = b.id;
+      o.textContent = (b.name || '未命名世界书') + '（' + (b.entries ? b.entries.length : 0) + ' 条）';
+      sel.appendChild(o);
+    });
+    if (cur && Array.prototype.some.call(sel.options, function (o) { return o.value === cur; })) sel.value = cur;
+  }
+
+  function renderGuideStrip() {
+    var bar = $('#guideStrip');
+    if (!bar) return;
+    var steps = [
+      { id: 'name', label: '作品名', done: !!card.name.trim(), tab: 'tab-overview', focus: '[data-field="name"]', need: true },
+      { id: 'open', label: '主开局', done: !!card.first_mes.trim(), tab: 'tab-open', focus: '[data-field="first_mes"]', need: false },
+      { id: 'book', label: '卡内世界书', done: card.character_book.entries.length > 0, tab: 'tab-book', need: false, warn: !card.character_book.entries.length },
+      { id: 'export', label: '导出', done: !!(card.name.trim()), tab: 'tab-save', need: false }
+    ];
+    bar.innerHTML = '';
+    steps.forEach(function (s, i) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      var cls = 'guide-step';
+      if (s.done) cls += ' is-done';
+      else if (s.warn) cls += ' is-warn';
+      else cls += ' is-todo';
+      btn.className = cls;
+      btn.innerHTML = '<span class="gs-num">' + (s.done ? '✓' : (i + 1)) + '</span><span>' + s.label + '</span>';
+      btn.title = s.done ? ('已完成：' + s.label) : ('下一步：去填写 ' + s.label);
+      btn.addEventListener('click', function () {
+        if (s.id === 'export') {
+          setFormTab('tab-overview');
+          toast(card.name.trim()
+            ? (card.character_book.entries.length ? '可以点顶栏「生成 PNG 世界卡」或「导出 JSON」了' : '可以导出了；若要带设定，先到「卡内世界书」写条目或嵌入副本')
+            : '先填作品名，再导出', card.name.trim() ? 'ok' : 'err', 4200);
+          return;
+        }
+        setFormTab(s.tab);
+        if (s.focus) {
+          setTimeout(function () {
+            var el = document.querySelector(s.focus);
+            if (el) { el.focus(); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+          }, 60);
+        }
+      });
+      bar.appendChild(btn);
+    });
+    var hint = document.createElement('span');
+    hint.className = 'guide-hint';
+    if (!card.name.trim()) hint.textContent = '下一步：填写作品名';
+    else if (!card.first_mes.trim()) hint.textContent = '下一步：写一段主开局（可稍后补）';
+    else if (!card.character_book.entries.length) hint.textContent = '建议：写卡内世界书（或从「世界书」嵌入副本）';
+    else hint.textContent = '就绪：可导出（卡内世界书 ' + card.character_book.entries.length + ' 条）';
+    bar.appendChild(hint);
+  }
+
+  function validateCard() {
+    if (!card.name.trim()) {
+      toast('请先填写「作品 / 世界名」（唯一必填项）', 'err');
+      setFormTab('tab-overview');
+      var n = $('[data-field="name"]'); if (n) n.focus();
+      return false;
+    }
+    syncBookNameFromCard();
+    if (!card.first_mes.trim()) {
+      if (!confirm('还没有主开局。导入酒馆后第一句会是空的。\n\n确定仍要继续导出？\n（取消 = 去填写开局）')) {
+        setFormTab('tab-open');
+        var f = $('[data-field="first_mes"]'); if (f) f.focus();
+        return false;
+      }
+    }
+    var libs = libBooksWithEntries();
+    if (!card.character_book.entries.length && libs.length) {
+      if (!confirm('卡内世界书是空的，但「世界书」里有 ' + libs.length + ' 本独立书。\n导出角色卡只会带卡内 character_book，不会自动带上独立库。\n\n确定继续空世界书导出？\n（取消 = 去「卡内世界书」嵌入副本）')) {
+        setFormTab('tab-book');
+        renderEmbedPanel();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function exportBookSummary() {
+    var n = card.character_book.entries.length;
+    var nm = card.character_book.name || '';
+    if (!n) return '无卡内世界书';
+    return '卡内世界书 ' + n + ' 条' + (nm ? '「' + nm + '」' : '');
   }
 
   function ensurePermission(dir) {
@@ -2673,7 +2889,7 @@
       try {
         await writeBlobToDir(fileName, blob);
         if (saveSettings.alsoDownload) download(blob, fileName);
-        toast('JSON 已保存到「' + archiveDirHandle.name + '」（' + specTxt + '）', 'ok', 4200);
+        toast('JSON 已保存到「' + archiveDirHandle.name + '」（' + specTxt + ' · ' + exportBookSummary() + '）', 'ok', 5200);
       } catch (e) {
         download(blob, fileName);
         toast('保存到目录失败（' + e.message + '），已改为下载', 'err', 5200);
@@ -2681,7 +2897,7 @@
       return;
     }
     download(blob, fileName);
-    toast('JSON 已导出（' + specTxt + '）', 'ok');
+    toast('JSON 已导出（' + specTxt + ' · ' + exportBookSummary() + '）', 'ok', 4200);
   }
 
   async function generatePng() {
@@ -2704,7 +2920,7 @@
         try {
           await writeBlobToDir(fileName, blob);
           if (saveSettings.alsoDownload) download(blob, fileName);
-          toast('PNG 世界卡已保存到「' + archiveDirHandle.name + '」并通过校验 ✔', 'ok', 4200);
+          toast('PNG 世界卡已保存到「' + archiveDirHandle.name + '」并通过校验 ✔（' + exportBookSummary() + '）', 'ok', 5200);
         } catch (e) {
           download(blob, fileName);
           toast('保存到目录失败（' + e.message + '），已改为下载', 'err', 5200);
@@ -2712,7 +2928,7 @@
         return;
       }
       download(blob, fileName);
-      toast('PNG 世界卡已生成并通过校验 ✔ 可直接拖进酒馆导入', 'ok', 4200);
+      toast('PNG 世界卡已生成并通过校验 ✔（' + exportBookSummary() + '）可拖进酒馆', 'ok', 5200);
     } catch (e) {
       toast('生成失败：' + e.message, 'err', 5000);
     }
@@ -2785,7 +3001,7 @@
           return;
         }
         download(new Blob([buildArchiveMd()], { type: 'text/markdown' }), base + '_' + timestampForFile() + '.md');
-        toast('已下载 .md存档。如果想直接写入文件夹，请先点「U0001F4C1 设置保存目录」', 'ok', 6500);
+        toast('已下载 .md存档。如果想直接写入文件夹，请先点「📁 设置保存目录」', 'ok', 6500);
         return;
       }
       var fname = await writeArchiveFile(base + '_' + timestampForFile() + '.md');
@@ -2951,7 +3167,7 @@
     var w = currentWork();
     if (w) w.name = card.name.trim() || '未命名作品';
     previewIdx = 0;
-    bookView = { query: '', cat: '', limit: BOOK_PAGE };
+    resetBookView('card');
     renderAll();
     touch();
     return true;
@@ -3026,8 +3242,14 @@
           var on = b.getAttribute('data-tab') === id;
           b.classList.toggle('active', on);
           b.setAttribute('aria-selected', on ? 'true' : 'false');
+          b.setAttribute('tabindex', on ? '0' : '-1');
         });
-        Array.prototype.slice.call(container.children).forEach(function (p) { p.classList.toggle('active', p.id === id); });
+        Array.prototype.slice.call(container.children).forEach(function (p) {
+          var on = p.id === id;
+          p.classList.toggle('active', on);
+          p.setAttribute('role', 'tabpanel');
+          p.setAttribute('aria-hidden', on ? 'false' : 'true');
+        });
         refreshAutoGrow("#" + id);
         saved[groupName] = id;
         try { localStorage.setItem(LS_TAB, JSON.stringify(saved)); } catch (e) { /* ignore */ }
@@ -3049,8 +3271,17 @@
   function bindShortcuts() {
     document.addEventListener('keydown', function (e) {
       if (!(e.ctrlKey || e.metaKey)) return;
+      var modalOpen = $('#pasteModal') && !$('#pasteModal').hidden;
+      // 粘贴解析：Ctrl+Shift+V（模态打开时改为直接解析）
+      if (e.shiftKey && (e.key === 'V' || e.key === 'v')) {
+        e.preventDefault();
+        if (modalOpen) runPasteParse();
+        else openPasteModal();
+        return;
+      }
+      if (modalOpen) return; // 模态打开时不抢占 Ctrl+S / Ctrl+Enter / 切页
       var k = e.key;
-      if (k >= '1' && k <= '7') {
+      if (k >= '1' && k <= '8') {
         e.preventDefault();
         setFormTab(FORM_TABS[parseInt(k, 10) - 1]);
       } else if (k.toLowerCase() === 's') {
@@ -3081,7 +3312,38 @@
     previewIdx = Math.min(previewIdx, card.alternate_greetings.length);
     renderChatPreview();
     renderHealth();
+    renderGuideStrip();
+    renderEmbedPanel();
     renderJsonIfVisible();
+  }
+
+
+  /* ================= 界面主题（日间 / 夜间） ================= */
+  var LS_THEME = 'stCardForgeTheme_v1';
+
+  function getUiTheme() {
+    var t = document.documentElement.getAttribute('data-theme');
+    return (t === 'day' || t === 'night') ? t : 'night';
+  }
+
+  function applyUiTheme(theme, persist) {
+    var t = (theme === 'day') ? 'day' : 'night';
+    document.documentElement.setAttribute('data-theme', t);
+    var nightBtn = $('#btnThemeNight');
+    var dayBtn = $('#btnThemeDay');
+    if (nightBtn) nightBtn.setAttribute('aria-pressed', t === 'night' ? 'true' : 'false');
+    if (dayBtn) dayBtn.setAttribute('aria-pressed', t === 'day' ? 'true' : 'false');
+    if (persist !== false) {
+      try { localStorage.setItem(LS_THEME, t); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function bindUiTheme() {
+    applyUiTheme(getUiTheme(), false);
+    var nightBtn = $('#btnThemeNight');
+    var dayBtn = $('#btnThemeDay');
+    if (nightBtn) nightBtn.addEventListener('click', function () { applyUiTheme('night'); });
+    if (dayBtn) dayBtn.addEventListener('click', function () { applyUiTheme('day'); });
   }
 
   /* ================= 启动 ================= */
@@ -3102,6 +3364,7 @@
     bindAvatar();
     bindUi();
     bindPasteParse();
+    bindUiTheme();
 
     ['#newEntryCat', '#libNewCat'].forEach(function (sel) {
       var el = $(sel);
@@ -3138,6 +3401,56 @@
     $('#btnNewWork').addEventListener('click', function () { createWork(false); });
     $('#btnDupWork').addEventListener('click', function () { createWork(true); });
     $('#btnDelWork').addEventListener('click', deleteWork);
+
+    $('#btnEmbedLib').addEventListener('click', function () {
+      var id = $('#embedLibSelect').value;
+      if (!id) { toast('请先选择一本独立世界书', 'err'); return; }
+      embedLibBookById(id);
+    });
+    $('#btnQuickConstant').addEventListener('click', function () {
+      bkMode = 'card';
+      var order = (card.character_book.entries.length + 1) * 100;
+      var e = M.newEntry('规则', '核心法则', order);
+      e.constant = true;
+      e.keys = [];
+      e.content = '（在此写始终生效的世界规则）';
+      card.character_book.entries.push(e);
+      syncBookNameFromCard();
+      renderBookList(); renderCatFilter(); renderEmbedPanel(); renderGuideStrip();
+      bookChanged();
+      toast('已在卡内添加常驻条目「核心法则」，直接改内容即可', 'ok', 4200);
+    });
+    $('#btnGotoLib').addEventListener('click', function () { setFormTab('tab-lib'); });
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('[data-help-anchor]');
+      if (!a) return;
+      e.preventDefault();
+      setFormTab('tab-help');
+      var id = a.getAttribute('data-help-anchor');
+      setTimeout(function () {
+        var el = document.getElementById(id);
+        if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }, 80);
+    });
+    document.addEventListener('click', function (e) {
+      var qs = e.target.closest && e.target.closest('.quick-step');
+      if (!qs) return;
+      if (qs.getAttribute('data-action') === 'export-hint') {
+        toast(card.name.trim()
+          ? '点顶栏「🎴 生成 PNG 世界卡」或「⬇ 导出 JSON」。' + exportBookSummary()
+          : '先填作品名，再导出', card.name.trim() ? 'ok' : 'err', 4500);
+        return;
+      }
+      var tab = qs.getAttribute('data-goto');
+      if (tab) setFormTab(tab);
+      var focus = qs.getAttribute('data-focus');
+      if (focus) {
+        setTimeout(function () {
+          var el = document.querySelector(focus);
+          if (el) { el.focus(); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        }, 60);
+      }
+    });
 
     $('#btnSaveArchive').addEventListener('click', saveArchive);
     $('#btnPickArchiveDir').addEventListener('click', pickArchiveDir);
@@ -3181,7 +3494,7 @@
       var w = currentWork();
       card = w ? w.card : M.emptyCard();
       if (!card.rules) card.rules = [];
-            if (!card.tone) card.tone = M.emptyTone();
+      if (!card.tone) card.tone = M.emptyTone();
       renderAll();
       if (restored) toast('已载入本机作品库', 'ok', 2600);
       saveWorks();

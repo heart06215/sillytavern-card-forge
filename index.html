@@ -1,22 +1,44 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="night">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>酒馆卡锻造工坊 · SillyTavern Card Forge</title>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('stCardForgeTheme_v1');
+        if (t === 'day' || t === 'night') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="logo" aria-hidden="true">🌍</span>
+      <span class="logo" aria-hidden="true" title="构成主义几何标">
+        <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" focusable="false">
+          <rect x="0" y="0" width="40" height="40" fill="var(--logo-bg)"/>
+          <rect x="4" y="4" width="14" height="14" fill="var(--accent)"/>
+          <circle cx="29" cy="11" r="6" fill="none" stroke="var(--line)" stroke-width="1.6"/>
+          <polygon points="6,34 20,18 34,34" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+          <rect x="22" y="24" width="12" height="3" fill="var(--accent)"/>
+          <line x1="4" y1="36" x2="18" y2="36" stroke="var(--line)" stroke-width="1.5"/>
+        </svg>
+      </span>
       <div>
         <div class="title">酒馆卡锻造工坊</div>
         <div class="subtitle">SillyTavern 世界卡 / 角色卡 / 世界书 · 纯本地，数据不出本机</div>
       </div>
+      <span class="geo-strip" aria-hidden="true"><i class="g-sq"></i><i class="g-tri"></i><i class="g-cir"></i><i class="g-bar"></i></span>
     </div>
     <div class="top-actions">
-      <button id="btnPasteParse" class="btn" title="粘贴文本，自动解析为角色卡 / 世界书">U0001F4CB 粘贴解析</button>
+      <div class="theme-toggle" role="group" aria-label="界面主题">
+        <button type="button" id="btnThemeNight" aria-pressed="true" title="夜间：黑 / 绿 / #E9E9E4"><span class="tt-ico" aria-hidden="true">☾</span>夜间</button>
+        <button type="button" id="btnThemeDay" aria-pressed="false" title="日间：白 / 红 / 黑"><span class="tt-ico" aria-hidden="true">☀</span>日间</button>
+      </div>
+      <button id="btnPasteParse" class="btn" title="粘贴文本，自动解析为角色卡 / 世界书">📋 粘贴解析</button>
       <button id="btnCoverTop" class="cover-btn" title="设置世界卡封面">
         <img id="coverThumb" alt="" hidden>
         <span id="coverThumbPh">🖼 封面</span>
@@ -29,18 +51,20 @@
   </header>
 
   <div id="healthBar" class="health-bar" aria-label="卡片体检"></div>
+  <div id="guideStrip" class="guide-strip" role="navigation" aria-label="制卡步骤"></div>
 
   <main class="layout">
     <!-- ============ 左侧：作品与内容编辑 ============ -->
     <section class="form-col">
-      <nav class="tabs" data-tabs="form" role="tablist">
-        <button class="tab" data-tab="tab-overview">🧭 作品</button>
-        <button class="tab" data-tab="tab-world">🌍 世界观</button>
-        <button class="tab" data-tab="tab-rules">📜 条例与文风</button>
-        <button class="tab" data-tab="tab-open">🎬 开局</button>
-        <button class="tab" data-tab="tab-book">📚 卡内世界书<span class="badge" id="badge-book">0</span></button>
-        <button class="tab" data-tab="tab-lib">📕 世界书库</button>
-        <button class="tab" data-tab="tab-ui">🖥 界面与扩展</button>
+      <nav class="tabs" data-tabs="form" role="tablist" aria-label="内容编辑">
+        <button class="tab" role="tab" data-tab="tab-overview">🧭 作品</button>
+        <button class="tab" role="tab" data-tab="tab-world">🌍 世界观</button>
+        <button class="tab" role="tab" data-tab="tab-rules">📜 条例与文风</button>
+        <button class="tab" role="tab" data-tab="tab-open">🎬 开局</button>
+        <button class="tab" role="tab" data-tab="tab-book">📚 卡内世界书<span class="badge" id="badge-book">0</span></button>
+        <button class="tab" role="tab" data-tab="tab-lib">📕 世界书</button>
+        <button class="tab" role="tab" data-tab="tab-ui">🖥 界面与扩展</button>
+        <button class="tab" role="tab" data-tab="tab-help">❓ 教程</button>
       </nav>
 
       <div class="tab-panels" data-panels="form">
@@ -55,7 +79,7 @@
               <button id="btnDupWork" class="btn small" title="复制当前作品，用于做一个变体">⎘ 复制当前作品</button>
               <button id="btnDelWork" class="btn small danger" title="删除当前作品">✕ 删除当前作品</button>
             </div>
-            <p class="tip">作品保存在本机浏览器（IndexedDB），可随时切换、复制、删除；生成 PNG 时会把当前作品写入图片。</p>
+            <p class="tip">作品保存在本机浏览器（IndexedDB）。<b>必填只有作品名</b>。跟角色卡绑定的设定请进「卡内世界书」；可复用、不绑卡的书请进「世界书」。详情见「教程」。</p>
           </div>
 
           <div class="panel">
@@ -104,17 +128,27 @@
             </label>
           </div>
 
-          <div class="panel">
-            <div class="panel-title">🗺 这张卡由六层组成</div>
-            <div class="layer-grid">
-              <div class="layer"><b>① 世界观</b><span>世界总纲与当前处境：这个世界是什么</span></div>
-              <div class="layer"><b>② 叙事</b><span>文风基调与示例：世界怎样被讲述</span></div>
-              <div class="layer"><b>③ 条例</b><span>行为规则：什么能写、什么不能写</span></div>
-              <div class="layer"><b>④ 开局</b><span>多个故事入口，酒馆里可切换</span></div>
-              <div class="layer"><b>⑤ 世界书</b><span>碎片设定，按关键词或常驻注入</span></div>
-              <div class="layer"><b>⑥ 界面</b><span>状态栏等显示层正则、原生扩展</span></div>
+          <div class="panel guide-panel">
+            <div class="panel-title">⚡ 最少三步做出可导入的卡</div>
+            <div class="quick-steps">
+              <button type="button" class="quick-step" data-goto="tab-overview" data-focus="[data-field=&quot;name&quot;]">
+                <span class="qs-num">1</span>
+                <span class="qs-body"><b>填作品名</b><i>本页上方「作品 / 世界名」</i></span>
+              </button>
+              <button type="button" class="quick-step" data-goto="tab-open" data-focus="[data-field=&quot;first_mes&quot;]">
+                <span class="qs-num">2</span>
+                <span class="qs-body"><b>写主开局</b><i>「开局」页第一段对白</i></span>
+              </button>
+              <button type="button" class="quick-step" data-goto="tab-book">
+                <span class="qs-num">3</span>
+                <span class="qs-body"><b>写卡内世界书</b><i>直接加条目，或从「世界书」嵌入副本</i></span>
+              </button>
+              <button type="button" class="quick-step qs-export" data-action="export-hint">
+                <span class="qs-num">✓</span>
+                <span class="qs-body"><b>导出</b><i>顶栏「生成 PNG」或「导出 JSON」</i></span>
+              </button>
             </div>
-            <p class="tip">💡 世界卡的核心是「世界」：总纲说明世界与讲述者，细节放世界书，开局提供入口，条例约束输出，正则负责界面。世界书名会自动同步到 <code>extensions.world</code>，导入酒馆时可关联内嵌世界书。</p>
+            <p class="tip">💡 总纲、条例、界面都是加分项，不挡导出。只有<strong>卡内世界书</strong>会进 PNG/JSON；「世界书」页的独立书不会自动带上，需要时再嵌入副本。快捷键：<code>Ctrl+1</code>–<code>8</code> 切页 · <code>Ctrl+S</code> 导出 JSON · <code>Ctrl+Enter</code> 生成 PNG · <code>Ctrl+Shift+V</code> 粘贴解析。</p>
           </div>
         </section>
 
@@ -139,7 +173,7 @@
               <textarea data-field="scenario" data-count rows="4" placeholder="极北之城，永夜将至的第七日；城墙外的雾一夜之间退了三里。"></textarea>
             </label>
           </div>
-          <p class="tip">💡 细节（地点、势力、人物、物品、规则）建议放进「世界书」，只在关键词命中时注入，比全部写进总纲更省 token。</p>
+          <p class="tip">💡 细节（地点、势力、人物、物品、规则）建议放进「卡内世界书」，只在关键词命中时注入，比全部写进总纲更省 token。</p>
         </section>
 
         <!-- ---------- 条例与文风 ---------- -->
@@ -252,13 +286,35 @@
           </div>
         </section>
 
-        <!-- ---------- 世界书 ---------- -->
+        <!-- ---------- 卡内世界书（绑定当前角色卡） ---------- -->
         <section class="tab-panel" id="tab-book">
+          <div class="panel role-banner role-card">
+            <div class="panel-title">📚 卡内世界书 · 只服务当前角色卡</div>
+            <p class="tip">这里编辑的是<strong>跟着角色卡走</strong>的设定。导出 PNG / JSON 时写入 <code>character_book</code>。若要做可复用、不绑卡的书，请去「世界书」页。</p>
+          </div>
+
+          <div class="panel embed-panel" id="embedPanel">
+            <div class="panel-title">📎 从「世界书」嵌入副本（可选）</div>
+            <p class="tip embed-status" id="embedStatus">当前卡内世界书为空。导出只会带卡内条目；「世界书」库里的独立书不会自动带上。</p>
+            <div class="embed-actions row">
+              <label class="field embed-pick">
+                <span class="label">选择一本独立世界书</span>
+                <select id="embedLibSelect" aria-label="选择要嵌入副本的独立世界书">
+                  <option value="">— 选择独立世界书 —</option>
+                </select>
+              </label>
+              <button type="button" id="btnEmbedLib" class="btn small primary" title="把选中的独立世界书全文复制进当前角色卡（覆盖卡内现有条目）">📥 嵌入副本到卡内</button>
+              <button type="button" id="btnQuickConstant" class="btn small" title="在卡内快速加一条常驻设定">＋ 卡内常驻条目</button>
+              <button type="button" id="btnGotoLib" class="btn small ghost" title="去「世界书」页编写独立书">去编写独立世界书 →</button>
+            </div>
+            <p class="tip">嵌入是<strong>全文副本</strong>（写入 <code>character_book</code>），之后两边互不影响。世界书名会同步到 <code>extensions.world</code>。</p>
+          </div>
+
           <div class="panel">
-            <div class="panel-title">📚 世界书设置 character_book</div>
+            <div class="panel-title">⚙️ 卡内设置 character_book</div>
             <div class="grid4 book-meta">
               <label class="field">
-                <span class="label">世界书名称（同步到 extensions.world）</span>
+                <span class="label">卡内世界书名（同步到 extensions.world）</span>
                 <input id="f-book-name" type="text" placeholder="例：极北之城设定集">
               </label>
               <label class="field"><span class="label">扫描深度 scan_depth</span><input id="f-book-scan" type="number" min="0" max="100" value="2"></label>
@@ -273,8 +329,8 @@
               <select id="newEntryCat" class="cat-select" title="新条目分类"></select>
               <button id="btnAddEntry" class="btn small primary">＋ 新建条目</button>
               <button id="btnAddFromTpl" class="btn small" title="按骨架新建条目">🧱 模板新建</button>
-              <button id="btnImportBook" class="btn small">⬆ 导入世界书</button>
-              <button id="btnExportBook" class="btn small">⬇ 导出世界书</button>
+              <button id="btnImportBook" class="btn small" title="导入到当前卡内世界书">⬆ 导入到卡内</button>
+              <button id="btnExportBook" class="btn small" title="仅导出卡内世界书 JSON">⬇ 导出卡内书</button>
               <input id="bookSearch" class="book-search" type="text" placeholder="🔍 搜索（标题 / 关键词 / 内容）">
               <label class="checkbox-field"><input id="bookCollapseAll" type="checkbox" checked><span>折叠高级</span></label>
               <input type="file" id="bookFile" accept=".json,application/json" hidden>
@@ -291,21 +347,21 @@
           </div>
         </section>
 
-        <!-- ---------- 世界书库（非内嵌世界书） ---------- -->
+        <!-- ---------- 世界书（独立，不绑角色卡） ---------- -->
         <section class="tab-panel" id="tab-lib">
-          <div class="panel">
-            <div class="panel-title">📕 世界书库（非内嵌世界书）<span class="hint" id="libHint"></span></div>
-            <p class="tip">这里的每一本都是一个<b>独立世界书</b>：导出为 <code>.json</code> 后，可在酒馆「世界书」面板直接导入，挂到任意角色卡上；也可以<b>设为当前作品的卡内世界书</b>。字段与酒馆原生世界书完全一致（41 个字段，含 uid、characterFilter、triggers 等）。</p>
+          <div class="panel role-banner role-lib">
+            <div class="panel-title">📕 世界书 · 独立编写，不绑角色卡<span class="hint" id="libHint"></span></div>
+            <p class="tip">这里写的是<strong>纯世界书</strong>：导出 <code>.json</code> 后可在酒馆「世界书」面板导入，挂到任意角色卡。本页<strong>不是</strong>卡内编辑器——改这里不会改角色卡。若要让当前角色卡带上内容，请到「卡内世界书」嵌入副本，或用下方「复制到卡内」。</p>
             <div id="libList" class="works-list"></div>
             <div class="row">
-              <button id="btnNewLib" class="btn small primary">＋ 新建世界书</button>
-              <button id="btnDupLib" class="btn small" title="复制当前世界书">⎘ 复制</button>
+              <button id="btnNewLib" class="btn small primary">＋ 新建独立世界书</button>
+              <button id="btnDupLib" class="btn small" title="复制当前独立世界书">⎘ 复制</button>
               <button id="btnDelLib" class="btn small danger">✕ 删除</button>
             </div>
           </div>
 
           <div class="panel">
-            <div class="panel-title">⚙️ 世界书设置</div>
+            <div class="panel-title">⚙️ 独立世界书设置</div>
             <div class="grid4 book-meta">
               <label class="field">
                 <span class="label">世界书名 name</span>
@@ -317,12 +373,13 @@
             </div>
             <div id="libStats" class="book-stats"></div>
             <div class="row">
-              <button id="btnLibImport" class="btn small">⬆ 导入世界书 .json</button>
-              <button id="btnLibExport" class="btn small primary">⬇ 导出世界书 .json</button>
-              <button id="btnLibToCard" class="btn small" title="把当前世界书设为当前作品的卡内世界书">📥 设为卡内世界书</button>
-              <button id="btnCardToLib" class="btn small" title="把当前作品的卡内世界书存入世界书库">📤 从卡内世界书存入</button>
+              <button id="btnLibImport" class="btn small">⬆ 导入独立书 .json</button>
+              <button id="btnLibExport" class="btn small primary">⬇ 导出独立书 .json</button>
+              <button id="btnLibToCard" class="btn small" title="把当前独立书全文复制进当前角色卡的卡内世界书（之后请到卡内页继续改）">📥 复制到卡内（当前角色卡）</button>
+              <button id="btnCardToLib" class="btn small" title="把当前角色卡的卡内世界书另存为一本独立世界书">📤 卡内另存为独立书</button>
               <input type="file" id="libFile" accept=".json,application/json" hidden>
             </div>
+            <p class="tip">「复制到卡内」会跳到「卡内世界书」；之后两边各自独立修改。</p>
           </div>
 
           <div class="panel">
@@ -483,17 +540,126 @@
           </div>
         </section>
 
+        <!-- ---------- 教程 ---------- -->
+        <section class="tab-panel" id="tab-help">
+          <div class="help-layout">
+            <nav class="help-toc" aria-label="教程目录">
+              <div class="help-toc-title">教程目录</div>
+              <a href="#help-diff" class="help-toc-link" data-help-anchor="help-diff">两种世界书怎么分</a>
+              <a href="#help-card" class="help-toc-link" data-help-anchor="help-card">新建角色卡</a>
+              <a href="#help-book-card" class="help-toc-link" data-help-anchor="help-book-card">写卡内世界书</a>
+              <a href="#help-book-lib" class="help-toc-link" data-help-anchor="help-book-lib">写独立世界书</a>
+              <a href="#help-embed" class="help-toc-link" data-help-anchor="help-embed">嵌入副本</a>
+              <a href="#help-export" class="help-toc-link" data-help-anchor="help-export">导出 PNG / JSON</a>
+              <a href="#help-theme" class="help-toc-link" data-help-anchor="help-theme">日间 / 夜间</a>
+              <a href="#help-tips" class="help-toc-link" data-help-anchor="help-tips">常用提示</a>
+            </nav>
+            <div class="help-body">
+              <div class="panel">
+                <div class="panel-title">❓ 使用教程</div>
+                <p class="tip">短说明、可点目录跳转。数据都在本机，不会上传。</p>
+              </div>
+
+              <div class="panel help-section" id="help-diff">
+                <div class="panel-title">1. 两种世界书怎么分</div>
+                <div class="help-compare">
+                  <div class="help-card">
+                    <b>📚 卡内世界书</b>
+                    <p>跟<strong>当前角色卡</strong>绑定。</p>
+                    <p>导出角色卡时写入 <code>character_book</code>。</p>
+                    <p>适合：这张卡专用的地点、人物、规则。</p>
+                  </div>
+                  <div class="help-card">
+                    <b>📕 世界书</b>
+                    <p><strong>独立</strong>书库，不绑角色卡。</p>
+                    <p>导出后可在酒馆「世界书」面板导入，挂到任意卡。</p>
+                    <p>适合：多张卡共用的设定集。</p>
+                  </div>
+                </div>
+                <p class="tip">记住一句：<strong>出角色卡看「卡内」；出通用设定看「世界书」。</strong></p>
+              </div>
+
+              <div class="panel help-section" id="help-card">
+                <div class="panel-title">2. 新建角色卡</div>
+                <ol class="help-steps">
+                  <li>点「作品」→「＋ 新建作品」。</li>
+                  <li>填<strong>作品 / 世界名</strong>（唯一必填）。</li>
+                  <li>到「开局」写主开局（强烈建议）。</li>
+                  <li>需要设定时去「卡内世界书」加条目。</li>
+                  <li>顶栏「生成 PNG」或「导出 JSON」。</li>
+                </ol>
+                <p class="tip">总纲、条例、界面都是加分项，不挡导出。也可点顶栏「粘贴解析」从文本一键填入。</p>
+              </div>
+
+              <div class="panel help-section" id="help-book-card">
+                <div class="panel-title">3. 写卡内世界书</div>
+                <ol class="help-steps">
+                  <li>打开「卡内世界书」页（只改当前卡）。</li>
+                  <li>「＋ 新建条目」或「卡内常驻条目」。</li>
+                  <li>填标题、关键词、内容；规则类可勾常驻。</li>
+                  <li>下方「关键词触发测试」可试会不会注入。</li>
+                </ol>
+                <p class="tip">卡内条目会进角色卡。空着的话，导出文件里世界书也是空的。</p>
+              </div>
+
+              <div class="panel help-section" id="help-book-lib">
+                <div class="panel-title">4. 写独立世界书</div>
+                <ol class="help-steps">
+                  <li>打开「世界书」页（不是卡内编辑器）。</li>
+                  <li>「＋ 新建独立世界书」，起名，加条目。</li>
+                  <li>「⬇ 导出独立书 .json」→ 可在酒馆世界书面板导入。</li>
+                </ol>
+                <p class="tip">在这里改内容<strong>不会</strong>改角色卡。要进卡，必须嵌入副本。</p>
+              </div>
+
+              <div class="panel help-section" id="help-embed">
+                <div class="panel-title">5. 嵌入副本（独立 → 卡内）</div>
+                <ol class="help-steps">
+                  <li>先在「世界书」写好独立书。</li>
+                  <li>到「卡内世界书」→ 选择独立书 →「嵌入副本到卡内」。</li>
+                  <li>或在「世界书」页点「复制到卡内」，会跳到卡内页。</li>
+                </ol>
+                <p class="tip">嵌入是<strong>全文拷贝</strong>，不是引用。之后改库里的书，不会自动改卡内；反之亦然。</p>
+              </div>
+
+              <div class="panel help-section" id="help-export">
+                <div class="panel-title">6. 导出 PNG / JSON</div>
+                <ol class="help-steps">
+                  <li>确认作品名已填；卡内世界书已按需写好。</li>
+                  <li>「🎴 生成 PNG 世界卡」需要封面图；「⬇ 导出 JSON」不需要。</li>
+                  <li>成功提示会写明内嵌了多少条世界书。</li>
+                </ol>
+                <p class="tip">若库里有书但卡内为空，导出前会提醒你，避免漏嵌。</p>
+              </div>
+
+              <div class="panel help-section" id="help-theme">
+                <div class="panel-title">7. 日间 / 夜间</div>
+                <p>顶栏右侧「☾夜间 / ☀日间」切换。选择会记在本机，下次打开仍有效。</p>
+              </div>
+
+              <div class="panel help-section" id="help-tips">
+                <div class="panel-title">8. 常用提示</div>
+                <ul class="help-steps">
+                  <li>快捷键：<code>Ctrl+1</code>–<code>8</code> 切左侧页签（含教程）；<code>Ctrl+S</code> 导出 JSON；<code>Ctrl+Enter</code> 生成 PNG；<code>Ctrl+Shift+V</code> 粘贴解析。</li>
+                  <li>顶栏步骤条可点，会跳到对应页并提示下一步。</li>
+                  <li>数据在浏览器 IndexedDB，清站点数据会丢作品库。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
       </div>
     </section>
 
     <!-- ============ 右侧：预览与输出 ============ -->
     <aside class="side-col">
-      <nav class="tabs side" data-tabs="side">
-        <button class="tab" data-tab="tab-preview">👀 预览</button>
-        <button class="tab" data-tab="tab-avatar">🖼 封面</button>
-        <button class="tab" data-tab="tab-save">💾 保存</button>
-        <button class="tab" data-tab="tab-ai">🤖 AI</button>
-        <button class="tab" data-tab="tab-json">{ } JSON</button>
+      <nav class="tabs side" data-tabs="side" role="tablist" aria-label="预览与输出">
+        <button class="tab" role="tab" data-tab="tab-preview">👀 预览</button>
+        <button class="tab" role="tab" data-tab="tab-avatar">🖼 封面</button>
+        <button class="tab" role="tab" data-tab="tab-save">💾 保存</button>
+        <button class="tab" role="tab" data-tab="tab-ai">🤖 AI</button>
+        <button class="tab" role="tab" data-tab="tab-json">{ } JSON</button>
       </nav>
 
       <div class="tab-panels" data-panels="side">
@@ -570,7 +736,7 @@
             <label class="field"><span class="label">世界构想（一两句灵感即可）</span><textarea id="ai-desc" rows="5" placeholder="例：一座永夜将至的极北之城，城墙外的雾一夜之间退了三里，钟楼里亮着一盏不该亮着的灯。"></textarea></label>
             <button id="btnAiGen" class="btn primary full">🤖 AI 生成并填充世界</button>
             <div id="aiStatus" class="hint"></div>
-            <p class="tip">生成会覆盖当前作品内容（有确认）。若跨域失败，请改用「启动角色卡工具-兼容模式.bat」。</p>
+            <p class="tip">生成会覆盖当前作品内容（有确认）。若跨域失败，请改用「启动制卡工具-兼容模式.bat」。</p>
           </div>
         </section>
 
@@ -585,11 +751,11 @@
     </aside>
   </main>
 
-<div id="pasteModal" class="modal" hidden>
+<div id="pasteModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="pasteModalTitle">
   <div class="modal-mask" data-close="1"></div>
   <div class="modal-box">
     <div class="modal-head">
-      <span class="modal-title">U0001F4CB 粘贴文本智能解析</span>
+      <span class="modal-title" id="pasteModalTitle">📋 粘贴文本智能解析</span>
       <button class="icon-btn" data-close="1" title="关闭">✕</button>
     </div>
     <div class="modal-body">
@@ -606,7 +772,7 @@
       <div class="row">
         <label class="checkbox-field"><input id="pasteSplitLong" type="checkbox"><span>长内容自动拆分为多个条目</span></label>
         <label class="checkbox-field"><input id="pasteToNew" type="checkbox" checked><span>写入新建作品（不覆盖当前）</span></label>
-        <button id="btnPasteRun" class="btn small primary">U0001F50D 解析</button>
+        <button id="btnPasteRun" class="btn small primary">🔍 解析</button>
         <button id="btnPasteClear" class="btn small ghost">清空</button>
       </div>
       <div id="pasteResult" class="paste-result"></div>

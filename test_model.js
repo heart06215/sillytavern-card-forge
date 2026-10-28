@@ -52,7 +52,8 @@ ok('导出条目保留未知字段 characterFilter', !!exported.characterFilter)
 ok('导出条目保留 displayIndex（原生字段）', exported.displayIndex === 3);
 ok('导出 position 0 为 before_char 字符串', exported.position === 'before_char');
 ok('导出 keys 数组正确', Array.isArray(exported.keys) && exported.keys[0] === '霜城');
-ok('世界书名为空时不写 extensions.world', bundle.primary.data.extensions.world === undefined);
+ok('有条目且世界书名为空时自动命名并写入 extensions.world', bundle.primary.data.extensions.world === '世界卡测试 世界书');
+ok('自动命名后 character_book.name 一致', bundle.primary.data.character_book.name === '世界卡测试 世界书');
 
 // 2. 原生互转：导出为 uid 键对象，再次解析结果一致
 const native2 = M.buildNativeBook('霜原设定集', card.character_book.entries);
@@ -120,7 +121,8 @@ ok('PNG 内嵌世界书条目数一致', back.data.character_book.entries.length
 
 // 10. 体检
 const h = M.health(M.emptyCard());
-ok('空卡体检报告缺少作品名与主开局', h.some(function (x) { return x.text.indexOf('作品') !== -1; }) && h.some(function (x) { return x.text.indexOf('主开局') !== -1; }));
+ok('空卡体检报告缺少作品名与主开局提示', h.some(function (x) { return x.text.indexOf('作品名') !== -1; }) && h.some(function (x) { return x.text.indexOf('主开局') !== -1; }));
+ok('空卡体检提示卡内世界书仍空', h.some(function (x) { return x.text.indexOf('卡内世界书') !== -1; }));
 
 // 11. 从 V3 卡还原内部模型（无损）
 const restored = M.fromCardObject(bundle.primary);
@@ -373,6 +375,19 @@ ok('简约条为单行', M.renderUiTemplate(M.defaultUi('minimal')).indexOf('⏰
 ok('主题切换改变颜色', M.renderUiTemplate(M.normalizeUi({ template: 'status', theme: 'ember' })).indexOf('#2a1710') !== -1);
 ok('自定义颜色优先于主题', M.renderUiTemplate(M.normalizeUi({ template: 'status', theme: 'ember', colors: { from: '#123456' } })).indexOf('#123456') !== -1);
 
+
+// ---- 体检跳转元数据 ----
+console.log('\n== 体检 tab/focus ==');
+{
+  const empty = M.emptyCard();
+  const issues = M.health(empty);
+  const nameIssue = issues.find(h => /作品|世界名|name/i.test(h.text));
+  const openIssue = issues.find(h => /主开局|first_mes/i.test(h.text));
+  ok('缺名带 tab-overview', nameIssue && nameIssue.tab === 'tab-overview');
+  ok('缺开局带 tab-open', openIssue && openIssue.tab === 'tab-open');
+  ok('缺名带 focus 选择器', nameIssue && typeof nameIssue.focus === 'string' && nameIssue.focus.length > 0);
+}
+
 console.log('\n全部通过：' + passed + ' 项断言 ✔');
 
 // 用项目自带的 PNG 工具造一张最小 PNG（与 test_card.js 同源思路）
@@ -467,5 +482,44 @@ ok('极短无结构文本不崩溃', typeof M.parsePastedText('你好').ok === '
 const blocks = M.splitBlocks('【A】1' + String.fromCharCode(10) + '内容' + String.fromCharCode(10) + '【B】2');
 ok('splitBlocks 切出 2 块', blocks.length === 2 && blocks[0].label === 'A' && blocks[1].label === 'B');
 ok('splitBlocks 保留内容', blocks[0].content === '1' + String.fromCharCode(10) + '内容');
+
+// ---- v0.4 角色卡内嵌世界书保证 ----
+(function () {
+  const c = M.emptyCard();
+  c.name = '嵌入测试世界';
+  c.first_mes = '开局。';
+  const libEntry = M.normalizeEntry({
+    comment: '【地理】极北', keys: ['极北'], content: '极北是永夜之地。',
+    constant: false, enabled: true, insertion_order: 100, id: 42
+  });
+  // 模拟「从世界书库嵌入」：把全文写入 character_book（非仅 ID 引用）
+  c.character_book = M.normalizeBook({
+    name: '', scan_depth: 2, token_budget: 500, recursive_scanning: false,
+    entries: [libEntry]
+  });
+  const v3 = M.toExportBundle(c, { spec: 'chara_card_v3', now: new Date('2026-01-01T00:00:00Z') });
+  const v2 = M.toExportBundle(c, { spec: 'chara_card_v2' });
+  ok('V3 data.character_book 存在', !!v3.primary.data.character_book);
+  ok('V3 character_book.entries 含全文', v3.primary.data.character_book.entries.length === 1 &&
+    v3.primary.data.character_book.entries[0].content.indexOf('永夜') !== -1);
+  ok('V3 character_book.entries[0].keys 保留', v3.primary.data.character_book.entries[0].keys[0] === '极北');
+  ok('V3 自动世界书名', v3.primary.data.character_book.name === '嵌入测试世界 世界书');
+  ok('V3 extensions.world 同步', v3.primary.data.extensions.world === '嵌入测试世界 世界书');
+  ok('V2 data.character_book 同样内嵌', v2.primary.data.character_book.entries.length === 1 &&
+    v2.primary.data.character_book.entries[0].content.indexOf('永夜') !== -1);
+  ok('V2 extensions.world 同步', v2.primary.data.extensions.world === '嵌入测试世界 世界书');
+  // PNG 写读回环
+  const png = buildPng();
+  const out = PNGCard.writeCards(png, v3.chunks);
+  const back = PNGCard.readCards(out).ccv3;
+  ok('PNG 读回仍含 character_book 条目全文', back.data.character_book.entries[0].content.indexOf('永夜') !== -1);
+  ok('PNG 读回 extensions.world', back.data.extensions.world === '嵌入测试世界 世界书');
+  // ensureBookForExport 纯函数
+  const prepared = M.ensureBookForExport(c);
+  ok('ensureBookForExport 补名', prepared.name === '嵌入测试世界 世界书' && prepared.entries.length === 1);
+  const emptyPrep = M.ensureBookForExport(M.emptyCard());
+  ok('无条目时不虚构世界书名', emptyPrep.name === '' && emptyPrep.entries.length === 0);
+})();
+
 
 console.log(String.fromCharCode(10) + '全部通过：' + passed + ' 项断言 ✔');
